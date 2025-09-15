@@ -209,7 +209,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> with Ticker
                           children: [
                             // Back Button
                             Align(
-                              alignment: Alignment.centerLeft,
+                              alignment: Directionality.of(context) == TextDirection.rtl 
+                                  ? Alignment.centerRight 
+                                  : Alignment.centerLeft,
                               child: IconButton(
                                 onPressed: () => Navigator.pop(context),
                                 icon: Container(
@@ -218,8 +220,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> with Ticker
                                     color: Colors.white.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: const Icon(
-                                    Icons.arrow_back_ios,
+                                  child: Icon(
+                                    Directionality.of(context) == TextDirection.rtl 
+                                        ? Icons.arrow_forward_ios 
+                                        : Icons.arrow_back_ios,
                                     color: Colors.white,
                                     size: 20,
                                   ),

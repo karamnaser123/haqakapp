@@ -8,6 +8,7 @@ import 'auth/otp_verification_screen.dart';
 import 'profile_screen.dart';
 import 'categories_screen.dart';
 import 'cart_screen.dart';
+import 'stores_screen.dart';
 import '../core/services/auth_service.dart';
 import '../core/services/cart_service.dart';
 
@@ -50,34 +51,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   List<Map<String, dynamic>> get _banners => [
     {
-      'title': 'عرض خاص!',
-      'subtitle': 'خصم يصل إلى 50% على أحدث الهواتف',
-      'description': 'اكتشف أفضل العروض والخصومات الحصرية',
-      'buttonText': 'تسوق الآن',
+      'title': 'Special Offer!',
+      'subtitle': 'Up to 50% off on latest phones',
+      'description': 'Discover the best exclusive offers and discounts',
+      'buttonText': 'Shop Now',
       'gradient': [Color(0xFF667eea), Color(0xFF764ba2), Color(0xFFf093fb)],
       'icon': Icons.local_offer,
     },
     {
-      'title': 'شحن مجاني!',
-      'subtitle': 'شحن مجاني لجميع الطلبات فوق 500 ${AppLocalizations.of(context)!.jd}',
-      'description': 'توصيل سريع وآمن لجميع أنحاء المملكة',
-      'buttonText': 'اطلب الآن',
+      'title': 'Free Shipping!',
+      'subtitle': 'Free shipping for all orders over 500 ${AppLocalizations.of(context)!.jd}',
+      'description': 'Fast and secure delivery across the Kingdom',
+      'buttonText': 'Order Now',
       'gradient': [Color(0xFF48BB78), Color(0xFF38A169), Color(0xFF2F855A)],
       'icon': Icons.local_shipping,
     },
     {
-      'title': 'أحدث التقنيات',
-      'subtitle': 'اكتشف أحدث الهواتف الذكية والتقنيات',
-      'description': 'تقنيات متطورة وأداء متميز في كل جهاز',
-      'buttonText': 'استكشف',
+      'title': 'Latest Technology',
+      'subtitle': 'Discover the latest smartphones and technology',
+      'description': 'Advanced technology and excellent performance in every device',
+      'buttonText': 'Explore',
       'gradient': [Color(0xFFF56565), Color(0xFFE53E3E), Color(0xFFC53030)],
       'icon': Icons.phone_android,
     },
     {
-      'title': 'ضمان شامل',
-      'subtitle': 'ضمان شامل لمدة سنتين على جميع المنتجات',
-      'description': 'خدمة عملاء متميزة ودعم فني متاح 24/7',
-      'buttonText': 'اعرف المزيد',
+      'title': 'Comprehensive Warranty',
+      'subtitle': 'Two-year comprehensive warranty on all products',
+      'description': 'Excellent customer service and 24/7 technical support',
+      'buttonText': 'Learn More',
       'gradient': [Color(0xFF9F7AEA), Color(0xFF805AD5), Color(0xFF6B46C1)],
       'icon': Icons.verified_user,
     },
@@ -166,9 +167,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final user = await authService.getUserInfo();
         
         if (mounted) {
-          // التحقق من حالة تأكيد البريد الإلكتروني
+          // Check email verification status
           if (user.emailVerifiedAt == null || user.emailVerifiedAt!.isEmpty) {
-            // البريد الإلكتروني غير مؤكد - الانتقال لصفحة OTP
+            // Email not verified - navigate to OTP page
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -182,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      // في حالة الخطأ، يمكن إما تجاهل الخطأ أو تسجيل الخروج
+      // In case of error, either ignore the error or logout
       print('Error checking email verification: $e');
     }
   }
@@ -197,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       print('Error loading cart items count: $e');
-      // في حالة الخطأ، استخدم CartService كبديل
+      // In case of error, use CartService as fallback
       try {
         final count = await CartService().getCartItemsCount();
         if (mounted) {
@@ -211,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  // دالة عامة لتحديث عداد السلة (يمكن استدعاؤها من الخارج)
+  // General function to update cart count (can be called from outside)
   Future<void> refreshCartCount() async {
     await _loadCartItemsCount();
   }
@@ -228,13 +229,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _selectedIndex == 3 
-        ? const ProfileScreen() // صفحة Profile بدون header
+      body: _selectedIndex == 4 
+        ? const ProfileScreen() // Profile page without header
         : _selectedIndex == 1
-          ? const CategoriesScreen() // صفحة Categories بدون header
+          ? const CategoriesScreen() // Categories page without header
           : _selectedIndex == 2
-            ? _buildFavoritesContent() // صفحة Favorites بدون header
-            : Container(
+            ? const StoresScreen() // Stores page without header
+            : _selectedIndex == 3
+              ? _buildFavoritesContent() // Favorites page without header
+              : Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -260,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 topRight: Radius.circular(30),
                               ),
                             ),
-                            child: _buildHomeContent(), // فقط محتوى Home
+                            child: _buildHomeContent(), // Only Home content
                           ),
                         ),
                       ],
@@ -268,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-      bottomNavigationBar: _buildBottomNavigationBar(), // navbar موجود دائماً
+      bottomNavigationBar: _buildBottomNavigationBar(), // navbar always present
     );
   }
 
@@ -301,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'Welcome',
+                      AppLocalizations.of(context)!.welcome,
                       style: GoogleFonts.cairo(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -313,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     AnimatedTextKit(
                       animatedTexts: [
                         TypewriterAnimatedText(
-                          'Discover the best phones',
+                          AppLocalizations.of(context)!.discoverTheBestPhones,
                           textStyle: GoogleFonts.cairo(
                             fontSize: 16,
                             color: Colors.white70,
@@ -351,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: TextField(
         textDirection: TextDirection.rtl,
         decoration: InputDecoration(
-          hintText: 'Search for phones...',
+          hintText: AppLocalizations.of(context)!.searchForPhones,
           hintStyle: GoogleFonts.cairo(
             color: const Color(0xFF718096),
           ),
@@ -579,7 +582,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Featured Phones',
+              AppLocalizations.of(context)!.featuredPhones,
               style: GoogleFonts.cairo(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -589,7 +592,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             TextButton(
               onPressed: () {},
               child: Text(
-                'View All',
+                AppLocalizations.of(context)!.viewAll,
                 style: GoogleFonts.cairo(
                   color: const Color(0xFF667eea),
                   fontWeight: FontWeight.w600,
@@ -752,7 +755,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Special Offers',
+            AppLocalizations.of(context)!.specialOffers,
             style: GoogleFonts.cairo(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -761,7 +764,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 8),
           Text(
-            'Get up to 50% off on all phones',
+            AppLocalizations.of(context)!.getUpTo50OffOnAllPhones,
             style: GoogleFonts.cairo(
               fontSize: 14,
               color: Colors.white70,
@@ -778,7 +781,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
             child: Text(
-              'Explore Offers',
+              AppLocalizations.of(context)!.exploreOffers,
               style: GoogleFonts.cairo(
                 fontWeight: FontWeight.bold,
               ),
@@ -797,7 +800,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildFavoritesContent() {
     return Center(
       child: Text(
-        'Favorites',
+        AppLocalizations.of(context)!.favorites,
         style: GoogleFonts.cairo(
           fontSize: 24,
           fontWeight: FontWeight.bold,
@@ -823,7 +826,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
-          if (index == 2) {
+          if (index == 3) {
             // Cart tab - navigate to cart screen
             Navigator.push(
               context,
@@ -861,6 +864,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             icon: const Icon(Icons.category_outlined),
             activeIcon: const Icon(Icons.category),
             label: AppLocalizations.of(context)!.categories,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.store_outlined),
+            activeIcon: const Icon(Icons.store),
+            label: AppLocalizations.of(context)!.stores,
           ),
           BottomNavigationBarItem(
             icon: Stack(

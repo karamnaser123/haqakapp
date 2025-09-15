@@ -8,7 +8,7 @@ import '../core/services/auth_service.dart';
 import '../core/models/product_model.dart';
 import 'product_details_screen.dart';
 
-// Widget منفصل لمعرض صور المنتج
+// Separate widget for product image gallery
 class _ProductImageGallery extends StatefulWidget {
   final ProductModel product;
 
@@ -38,7 +38,7 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // PageView لعرض جميع الصور
+        // PageView to display all images
         PageView.builder(
           controller: _pageController,
           itemCount: widget.product.allImages.length,
@@ -71,7 +71,7 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
           },
         ),
         
-        // مؤشرات الصور (dots)
+        // Image indicators (dots)
         if (widget.product.allImages.length > 1)
           Positioned(
             bottom: 8,
@@ -96,7 +96,7 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
             ),
           ),
         
-        // عداد الصور
+        // Image counter
         if (widget.product.allImages.length > 1)
           Positioned(
             top: 8,
@@ -118,9 +118,9 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
             ),
           ),
         
-        // أسهم التنقل
+        // Navigation arrows
         if (widget.product.allImages.length > 1) ...[
-          // سهم اليسار
+          // Left arrow
           Positioned(
             left: 8,
             top: 0,
@@ -151,7 +151,7 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
             ),
           ),
           
-          // سهم اليمين
+          // Right arrow
           Positioned(
             right: 8,
             top: 0,
@@ -234,7 +234,7 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
             ),
             const SizedBox(height: 8),
             Text(
-              'منتج',
+              AppLocalizations.of(context)!.product,
               style: GoogleFonts.cairo(
                 fontSize: 12,
                 color: const Color(0xFF667eea),
@@ -333,7 +333,7 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
             _products = response.products;
             _productsCount = response.productsCount;
           } else {
-            // إضافة المنتجات الجديدة فقط (تجنب التكرار)
+            // Add new products only (avoid duplicates)
             for (final product in response.products) {
               if (!_products.any((existing) => existing.id == product.id)) {
                 _products.add(product);
@@ -382,7 +382,7 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
       _isLoadingMore = true;
     });
     
-    // زيادة رقم الصفحة قبل التحميل
+    // Increment page number before loading
     _currentPage++;
     print('Page incremented to: $_currentPage');
     
@@ -415,6 +415,23 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
     );
   }
 
+  // Calculate discount percentage
+  String _getDiscountPercentage(ProductModel product) {
+    final originalPrice = double.tryParse(product.price) ?? 0.0;
+    final discountValue = double.tryParse(product.discount) ?? 0.0;
+    
+    if (originalPrice == 0) return '0';
+    
+    // If discount is greater than 1, it's a percentage
+    if (discountValue > 1) {
+      return discountValue.toStringAsFixed(0);
+    } else {
+      // If discount is less than or equal to 1, calculate percentage
+      final percentage = (discountValue / originalPrice) * 100;
+      return percentage.toStringAsFixed(0);
+    }
+  }
+
 
   Widget _buildProductCard(ProductModel product, int index) {
     return GestureDetector(
@@ -429,7 +446,7 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
         );
       },
       child: Container(
-        height: 240,
+        height: 280,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -468,9 +485,9 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
             
             // Product Content
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Padding(
-                padding: const EdgeInsets.all(7),
+                padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -489,10 +506,12 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                     ),
                     const SizedBox(height: 6),
                     
-                    // Price
-                    Row(
+                    // Price and Discount
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (product.hasDiscount) ...[
+                          // Price after discount
                           Text(
                             '${product.finalPrice.toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
                             style: GoogleFonts.cairo(
@@ -501,14 +520,41 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                               color: const Color(0xFF667eea),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${double.parse(product.price).toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
-                            style: GoogleFonts.cairo(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                              decoration: TextDecoration.lineThrough,
-                            ),
+                          const SizedBox(height: 4),
+                          // Original price and discount percentage in one row
+                          Row(
+                            children: [
+                              // Original price
+                              Text(
+                                '${double.parse(product.price).toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Discount percentage
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.red.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  '${AppLocalizations.of(context)!.discount} ${_getDiscountPercentage(product)}%',
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red[700],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ] else
                           Text(
@@ -575,13 +621,14 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                     
                     const SizedBox(height: 8),
                     
-                    // Store Info - في الأسفل
+                    // Store Info - at the bottom
                     if (product.store != null) ...[
+                      const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: Colors.grey[300]!,
                             width: 1,
@@ -591,8 +638,8 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                           children: [
                             // Store Image
                             Container(
-                              width: 24,
-                              height: 24,
+                              width: 20,
+                              height: 20,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
@@ -607,29 +654,29 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                                         fit: BoxFit.cover,
                                         placeholder: (context, url) => Icon(
                                           Icons.store,
-                                          size: 12,
+                                          size: 10,
                                           color: Colors.grey[400],
                                         ),
                                         errorWidget: (context, url, error) => Icon(
                                           Icons.store,
-                                          size: 12,
+                                          size: 10,
                                           color: Colors.grey[400],
                                         ),
                                       )
                                     : Icon(
                                         Icons.store,
-                                        size: 12,
+                                        size: 10,
                                         color: Colors.grey[400],
                                       ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             // Store Name
                             Expanded(
                               child: Text(
                                 product.store!.name,
                                 style: GoogleFonts.cairo(
-                                  fontSize: 10,
+                                  fontSize: 9,
                                   fontWeight: FontWeight.w600,
                                   color: const Color(0xFF2d3748),
                                 ),
@@ -641,15 +688,15 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                             if (product.store!.cashbackRate > 0) ...[
                               const SizedBox(width: 4),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF667eea).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(3),
                                 ),
                                 child: Text(
                                   '${product.store!.cashbackRate}%',
                                   style: GoogleFonts.cairo(
-                                    fontSize: 8,
+                                    fontSize: 7,
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF667eea),
                                   ),
@@ -675,12 +722,12 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
   }
 
   Widget _buildProductImage(ProductModel product) {
-    // التحقق من وجود صور للمنتج
+    // Check if product has images
     if (product.hasImages && product.allImages.isNotEmpty) {
       return _buildProductImageGallery(product);
     }
     
-    // عرض الأيقونة الافتراضية إذا لم توجد صور
+    // Show default icon if no images
     return _buildDefaultProductIcon();
   }
 
@@ -715,7 +762,7 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
             ),
             const SizedBox(height: 8),
             Text(
-              'منتج',
+              AppLocalizations.of(context)!.product,
               style: GoogleFonts.cairo(
                 fontSize: 12,
                 color: const Color(0xFF667eea),
@@ -756,7 +803,7 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
               ),
             const SizedBox(height: 8),
             Text(
-              _isLoadingMore ? 'Loading...' : 'Load More',
+              _isLoadingMore ? AppLocalizations.of(context)!.loading : AppLocalizations.of(context)!.loadMore,
               style: GoogleFonts.cairo(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -808,8 +855,10 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
-                          Icons.arrow_back,
+                        child: Icon(
+                          Directionality.of(context) == TextDirection.rtl 
+                              ? Icons.arrow_forward 
+                              : Icons.arrow_back,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -919,7 +968,7 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.75,
+              childAspectRatio: 0.60,
             ),
             itemCount: _products.length + (_hasNextPage ? 1 : 0),
             itemBuilder: (context, index) {

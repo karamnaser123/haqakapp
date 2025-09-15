@@ -125,6 +125,15 @@ class ProductModel {
     this.store,
   });
 
+  // دالة لتنظيف النصوص من الأحرف غير الصحيحة
+  static String _cleanText(dynamic value) {
+    if (value == null) return '';
+    String text = value.toString();
+    // إزالة الأحرف غير الصحيحة والرموز الغريبة
+    text = text.replaceAll(RegExp(r'[^\x00-\x7F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]'), '');
+    return text.trim();
+  }
+
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     // استخراج الصور
     final imagesData = json['product_images'] as List<dynamic>? ?? [];
@@ -140,20 +149,20 @@ class ProductModel {
       id: json['id'] ?? 0,
       storeId: json['store_id'] ?? 0,
       categoryId: json['category_id'] ?? 0,
-      nameEn: json['name_en'] ?? '',
-      nameAr: json['name_ar'] ?? '',
-      price: json['price'] ?? '0.00',
-      discount: json['discount'] ?? '0.00',
+      nameEn: _cleanText(json['name_en']),
+      nameAr: _cleanText(json['name_ar']),
+      price: _cleanText(json['price']) != '' ? _cleanText(json['price']) : '0.00',
+      discount: _cleanText(json['discount']) != '' ? _cleanText(json['discount']) : '0.00',
       stock: json['stock'] ?? 0,
-      descriptionEn: json['description_en'] ?? '',
-      descriptionAr: json['description_ar'] ?? '',
+      descriptionEn: _cleanText(json['description_en']),
+      descriptionAr: _cleanText(json['description_ar']),
       active: json['active'] ?? 0,
       featured: json['featured'] ?? 0,
       newProduct: json['new'] ?? 0,
       bestSeller: json['best_seller'] ?? 0,
       topRated: json['top_rated'] ?? 0,
-      createdAt: json['created_at'] ?? '',
-      updatedAt: json['updated_at'] ?? '',
+      createdAt: _cleanText(json['created_at']),
+      updatedAt: _cleanText(json['updated_at']),
       productImages: productImages,
       store: store,
     );
@@ -186,8 +195,15 @@ class ProductModel {
   // حساب السعر بعد الخصم
   double get finalPrice {
     final originalPrice = double.tryParse(price) ?? 0.0;
-    final discountAmount = double.tryParse(discount) ?? 0.0;
-    return originalPrice - discountAmount;
+    final discountValue = double.tryParse(discount) ?? 0.0;
+    
+    // إذا كان الخصم أكبر من 1، فهو نسبة مئوية
+    if (discountValue > 1) {
+      return originalPrice * (1 - discountValue / 100);
+    } else {
+      // إذا كان الخصم أقل من أو يساوي 1، فهو مبلغ خصم مباشر
+      return originalPrice - discountValue;
+    }
   }
 
   // التحقق من وجود خصم

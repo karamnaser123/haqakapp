@@ -332,8 +332,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Ticker
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
-                Icons.arrow_back,
+              child: Icon(
+                Directionality.of(context) == TextDirection.rtl 
+                    ? Icons.arrow_forward 
+                    : Icons.arrow_back,
                 color: Colors.white,
                 size: 20,
               ),

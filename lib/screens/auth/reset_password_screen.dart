@@ -597,7 +597,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> with TickerPr
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Remember your password? ',
+                AppLocalizations.of(context)!.rememberYourPassword,
                 style: GoogleFonts.cairo(
                   color: const Color(0xFF718096),
                 ),
@@ -609,7 +609,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> with TickerPr
                   (route) => false,
                 ),
                 child: Text(
-                  'Login',
+                  AppLocalizations.of(context)!.login,
                   style: GoogleFonts.cairo(
                     color: const Color(0xFF667eea),
                     fontWeight: FontWeight.bold,

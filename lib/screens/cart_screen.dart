@@ -4,6 +4,7 @@ import '../core/services/auth_service.dart';
 import '../core/services/cart_service.dart' as cart_service;
 import '../core/models/cart_model.dart';
 import '../l10n/app_localizations.dart';
+import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -22,7 +23,30 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCart();
+    _loadCartAndSyncPrices();
+  }
+
+  Future<void> _loadCartAndSyncPrices() async {
+    // تحميل السلة أولاً
+    await _loadCart();
+    
+    // ثم تحديث الأسعار في الخلفية
+    if (_cartResponse != null && _cartResponse!.cart.isNotEmpty) {
+      _syncPricesInBackground();
+    }
+  }
+
+  Future<void> _syncPricesInBackground() async {
+    try {
+      await _cartService.syncProductPrices();
+      // إعادة تحميل السلة بعد تحديث الأسعار
+      if (mounted) {
+        await _loadCart();
+      }
+    } catch (e) {
+      print('Background price sync failed: $e');
+      // لا نعرض رسالة خطأ للمستخدم في التحديث التلقائي
+    }
   }
 
   Future<void> _loadCart() async {
@@ -46,6 +70,63 @@ class _CartScreenState extends State<CartScreen> {
           _isLoading = false;
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
         });
+      }
+    }
+  }
+
+  Future<void> _syncPrices() async {
+    try {
+      print('Syncing product prices...');
+      setState(() {
+        _isLoading = true;
+      });
+
+      // تحديث الأسعار من الخادم
+      final success = await _cartService.syncProductPrices();
+      
+      if (success) {
+        // إعادة تحميل السلة من الخادم
+        await _loadCart();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)!.pricesUpdatedSuccessfully,
+                style: GoogleFonts.cairo(),
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)!.failedToUpdatePrices,
+                style: GoogleFonts.cairo(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error syncing prices: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${AppLocalizations.of(context)!.errorUpdatingPrices}: ${e.toString()}',
+              style: GoogleFonts.cairo(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -118,6 +199,30 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _increaseQuantity(int productId) async {
     try {
       print('Increasing quantity for product ID: $productId');
+      
+      // Check current quantity first
+      if (_cartResponse != null) {
+        for (final cartItem in _cartResponse!.cart) {
+          for (final orderItem in cartItem.orderItems) {
+            if (orderItem.productId == productId) {
+              if (orderItem.quantity >= 1000) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      AppLocalizations.of(context)!.quantityCannotExceed1000,
+                      style: GoogleFonts.cairo(),
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              break;
+            }
+          }
+        }
+      }
+      
       setState(() {
         _isLoading = true;
       });
@@ -133,7 +238,7 @@ class _CartScreenState extends State<CartScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'تم تحديث الكمية',
+                AppLocalizations.of(context)!.quantityUpdated,
                 style: GoogleFonts.cairo(),
               ),
               backgroundColor: Colors.green,
@@ -159,13 +264,18 @@ class _CartScreenState extends State<CartScreen> {
         setState(() {
           _isLoading = false;
         });
+        
+        // Extract the error message and show it to the user
+        String errorMessage = e.toString().replaceFirst('Exception: ', '');
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${AppLocalizations.of(context)!.error}: ${e.toString()}',
+              errorMessage,
               style: GoogleFonts.cairo(),
             ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -190,7 +300,7 @@ class _CartScreenState extends State<CartScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'تم تحديث الكمية',
+                AppLocalizations.of(context)!.quantityUpdated,
                 style: GoogleFonts.cairo(),
               ),
               backgroundColor: Colors.green,
@@ -216,13 +326,18 @@ class _CartScreenState extends State<CartScreen> {
         setState(() {
           _isLoading = false;
         });
+        
+        // Extract the error message and show it to the user
+        String errorMessage = e.toString().replaceFirst('Exception: ', '');
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${AppLocalizations.of(context)!.error}: ${e.toString()}',
+              errorMessage,
               style: GoogleFonts.cairo(),
             ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -240,7 +355,7 @@ class _CartScreenState extends State<CartScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(
-            'تعديل الكمية',
+            AppLocalizations.of(context)!.editQuantity,
             style: GoogleFonts.cairo(
               fontWeight: FontWeight.bold,
             ),
@@ -249,7 +364,7 @@ class _CartScreenState extends State<CartScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'أدخل الكمية المطلوبة:',
+                AppLocalizations.of(context)!.enterDesiredQuantity,
                 style: GoogleFonts.cairo(
                   fontSize: 14,
                   color: Colors.grey[700],
@@ -289,7 +404,7 @@ class _CartScreenState extends State<CartScreen> {
                 Navigator.of(context).pop();
               },
               child: Text(
-                'إلغاء',
+                AppLocalizations.of(context)!.cancel,
                 style: GoogleFonts.cairo(
                   color: Colors.grey[600],
                 ),
@@ -299,13 +414,25 @@ class _CartScreenState extends State<CartScreen> {
               onPressed: () async {
                 final newQuantity = int.tryParse(quantityController.text);
                 if (newQuantity != null && newQuantity > 0) {
+                  if (newQuantity > 1000) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          AppLocalizations.of(context)!.quantityCannotExceed1000,
+                          style: GoogleFonts.cairo(),
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
                   Navigator.of(context).pop();
                   await _updateQuantity(productId, newQuantity);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'يرجى إدخال كمية صحيحة',
+                        AppLocalizations.of(context)!.pleaseEnterValidQuantity,
                         style: GoogleFonts.cairo(),
                       ),
                       backgroundColor: Colors.red,
@@ -320,7 +447,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
               child: Text(
-                'تحديث',
+                AppLocalizations.of(context)!.update,
                 style: GoogleFonts.cairo(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -351,7 +478,7 @@ class _CartScreenState extends State<CartScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'تم تحديث الكمية',
+                AppLocalizations.of(context)!.quantityUpdated,
                 style: GoogleFonts.cairo(),
               ),
               backgroundColor: Colors.green,
@@ -377,13 +504,18 @@ class _CartScreenState extends State<CartScreen> {
         setState(() {
           _isLoading = false;
         });
+        
+        // Extract the error message and show it to the user
+        String errorMessage = e.toString().replaceFirst('Exception: ', '');
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${AppLocalizations.of(context)!.error}: ${e.toString()}',
+              errorMessage,
               style: GoogleFonts.cairo(),
             ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -397,13 +529,13 @@ class _CartScreenState extends State<CartScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(
-            'حذف السلة كاملة',
+            AppLocalizations.of(context)!.clearCartCompletely,
             style: GoogleFonts.cairo(
               fontWeight: FontWeight.bold,
             ),
           ),
           content: Text(
-            'هل أنت متأكد من أنك تريد حذف جميع المنتجات من السلة؟',
+            AppLocalizations.of(context)!.areYouSureClearCart,
             style: GoogleFonts.cairo(
               fontSize: 14,
               color: Colors.grey[700],
@@ -415,7 +547,7 @@ class _CartScreenState extends State<CartScreen> {
                 Navigator.of(context).pop();
               },
               child: Text(
-                'إلغاء',
+                AppLocalizations.of(context)!.cancel,
                 style: GoogleFonts.cairo(
                   color: Colors.grey[600],
                 ),
@@ -433,7 +565,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
               child: Text(
-                'حذف الكل',
+                AppLocalizations.of(context)!.deleteAll,
                 style: GoogleFonts.cairo(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
@@ -467,7 +599,7 @@ class _CartScreenState extends State<CartScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'تم حذف السلة كاملة',
+                AppLocalizations.of(context)!.cartClearedSuccessfully,
                 style: GoogleFonts.cairo(),
               ),
               backgroundColor: Colors.green,
@@ -506,6 +638,23 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
+  // حساب نسبة الخصم
+  String _getDiscountPercentage(CartProduct product) {
+    final originalPrice = double.tryParse(product.price) ?? 0.0;
+    final discountValue = double.tryParse(product.discount) ?? 0.0;
+    
+    if (originalPrice == 0) return '0';
+    
+    // إذا كان الخصم أكبر من 1، فهو نسبة مئوية
+    if (discountValue > 1) {
+      return discountValue.toStringAsFixed(0);
+    } else {
+      // إذا كان الخصم أقل من أو يساوي 1، احسب النسبة المئوية
+      final percentage = (discountValue / originalPrice) * 100;
+      return percentage.toStringAsFixed(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -524,12 +673,19 @@ class _CartScreenState extends State<CartScreen> {
         centerTitle: true,
         actions: [
           IconButton(
+            onPressed: _syncPrices,
+            icon: const Icon(Icons.sync, color: Colors.white),
+            tooltip: AppLocalizations.of(context)!.updatePrices,
+          ),
+          IconButton(
             onPressed: _loadCart,
             icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: AppLocalizations.of(context)!.refreshCart,
           ),
           IconButton(
             onPressed: _showClearCartDialog,
             icon: const Icon(Icons.delete_sweep, color: Colors.white),
+            tooltip: AppLocalizations.of(context)!.clearCart,
           ),
         ],
       ),
@@ -571,7 +727,7 @@ class _CartScreenState extends State<CartScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'حدث خطأ في تحميل السلة',
+              AppLocalizations.of(context)!.errorLoadingCart,
               style: GoogleFonts.cairo(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -598,7 +754,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
               child: Text(
-                'إعادة المحاولة',
+                AppLocalizations.of(context)!.retry,
                 style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
               ),
             ),
@@ -787,14 +943,9 @@ class _CartScreenState extends State<CartScreen> {
               height: 56,
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: Implement checkout
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        AppLocalizations.of(context)!.checkoutSoon,
-                        style: GoogleFonts.cairo(),
-                      ),
-                      backgroundColor: const Color(0xFF667eea),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const CheckoutScreen(),
                     ),
                   );
                 },
@@ -911,7 +1062,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
               Text(
-                '${cartItem.totalPrice} ${AppLocalizations.of(context)!.jd}',
+                '${cartItem.correctTotalPrice.toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
                 style: GoogleFonts.cairo(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1009,22 +1160,58 @@ class _CartScreenState extends State<CartScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  '${AppLocalizations.of(context)!.price}: ${orderItem.price} ${AppLocalizations.of(context)!.jd}',
-                  style: GoogleFonts.cairo(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                Row(
+                  children: [
+                    if (orderItem.product.discount != '0.00' && orderItem.product.discount != '0') ...[
+                      Text(
+                        '${orderItem.product.finalPrice.toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
+                        style: GoogleFonts.cairo(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF667eea),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${double.parse(orderItem.product.price).toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
+                        style: GoogleFonts.cairo(
+                          fontSize: 10,
+                          color: Colors.grey[500],
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                    ] else
+                      Text(
+                        '${orderItem.correctPrice.toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
+                        style: GoogleFonts.cairo(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                  ],
                 ),
-                if (orderItem.product.discount != '0.00' && orderItem.product.discount != '0')
-                  Text(
-                    '${AppLocalizations.of(context)!.discount}: ${orderItem.product.discount} ${AppLocalizations.of(context)!.jd}',
-                    style: GoogleFonts.cairo(
-                      fontSize: 11,
-                      color: Colors.green[600],
-                      fontWeight: FontWeight.w500,
+                if (orderItem.product.discount != '0.00' && orderItem.product.discount != '0') ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: Colors.red.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '${AppLocalizations.of(context)!.discount} ${_getDiscountPercentage(orderItem.product)}%',
+                      style: GoogleFonts.cairo(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red[700],
+                      ),
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -1093,34 +1280,34 @@ class _CartScreenState extends State<CartScreen> {
                   const SizedBox(width: 8),
                   // Increase Button
                   GestureDetector(
-                    onTap: () {
+                    onTap: orderItem.quantity >= 1000 ? null : () {
                       _increaseQuantity(orderItem.productId);
                     },
                     child: Container(
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF667eea),
+                        color: orderItem.quantity >= 1000 ? Colors.grey[300] : const Color(0xFF667eea),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.add,
                         size: 16,
-                        color: Colors.white,
+                        color: orderItem.quantity >= 1000 ? Colors.grey[600] : Colors.white,
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                '${orderItem.totalPrice} ${AppLocalizations.of(context)!.jd}',
-                style: GoogleFonts.cairo(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF667eea),
+                Text(
+                  '${orderItem.correctTotalPrice.toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
+                  style: GoogleFonts.cairo(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF667eea),
+                  ),
                 ),
-              ),
               const SizedBox(height: 8),
               // Remove Button (Icon only)
               GestureDetector(

@@ -15,6 +15,9 @@ class AuthService {
 
   String? _token;
 
+  // الحصول على الـ token
+  String? get token => _token;
+
   // تحميل الـ token من التخزين المحلي
   Future<void> _loadToken() async {
     try {
@@ -618,7 +621,7 @@ class AuthService {
     }
   }
 
-  // Get Categories - الحصول على الفئات
+  // Get Categories - الحصول على الفئات الرئيسية
   Future<CategoriesResponse> getCategories({int page = 1}) async {
     try {
       final url = '${ApiEndpoints.categoriesUrl}?page=$page';
@@ -647,6 +650,39 @@ class AuthService {
       }
     } catch (e) {
       print('error in get categories: $e');
+      throw Exception(e.toString());
+    }
+  }
+
+  // Get Subcategories - الحصول على الفئات الفرعية
+  Future<CategoriesResponse> getSubcategories({required int parentId, int page = 1}) async {
+    try {
+      final url = '${ApiEndpoints.subcategoriesUrl}$parentId?page=$page';
+      print('Subcategories API URL: $url');
+      print('Token: $_token');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+      );
+
+      print('Subcategories response code: ${response.statusCode}');
+      print('Subcategories response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        print('Parsed subcategories response data: $responseData');
+        return CategoriesResponse.fromJson(responseData);
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to get subcategories');
+      }
+    } catch (e) {
+      print('error in get subcategories: $e');
       throw Exception(e.toString());
     }
   }

@@ -7,6 +7,7 @@ class CategoryModel {
   final String? createdAt;
   final String? updatedAt;
   final int productsCount;
+  final int childrenCount;
 
   CategoryModel({
     required this.id,
@@ -17,6 +18,7 @@ class CategoryModel {
     this.createdAt,
     this.updatedAt,
     this.productsCount = 0,
+    this.childrenCount = 0,
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class CategoryModel {
       createdAt: json['created_at'],
       updatedAt: json['updated_at'],
       productsCount: json['products_count'] ?? 0,
+      childrenCount: json['children_count'] ?? 0,
     );
   }
 
@@ -42,6 +45,7 @@ class CategoryModel {
       'created_at': createdAt,
       'updated_at': updatedAt,
       'products_count': productsCount,
+      'children_count': childrenCount,
     };
   }
 

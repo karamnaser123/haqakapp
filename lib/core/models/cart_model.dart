@@ -124,7 +124,18 @@ class CartProduct {
   }
 
   // Helper methods
-  double get finalPrice => double.parse(price) - double.parse(discount);
+  double get finalPrice {
+    final originalPrice = double.tryParse(price) ?? 0.0;
+    final discountValue = double.tryParse(discount) ?? 0.0;
+    
+    // إذا كان الخصم أكبر من 1، فهو نسبة مئوية
+    if (discountValue > 1) {
+      return originalPrice * (1 - discountValue / 100);
+    } else {
+      // إذا كان الخصم أقل من أو يساوي 1، فهو مبلغ خصم مباشر
+      return originalPrice - discountValue;
+    }
+  }
   bool get isAvailable => active == 1 && stock > 0;
   String get firstImage => productImages.isNotEmpty ? productImages.first.image : '';
 }
@@ -232,6 +243,12 @@ class OrderItem {
     required this.product,
   });
 
+  // حساب السعر الصحيح بناءً على السعر النهائي للمنتج (مع الخصم)
+  double get correctPrice => product.finalPrice;
+  
+  // حساب المجموع الصحيح من API بدلاً من الحساب المحلي
+  double get correctTotalPrice => double.tryParse(totalPrice) ?? (correctPrice * quantity);
+
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
       id: json['id'] ?? 0,
@@ -287,6 +304,11 @@ class CartItem {
     required this.orderItems,
     required this.store,
   });
+
+  // حساب المجموع الصحيح من API بدلاً من الحساب المحلي
+  double get correctTotalPrice {
+    return double.tryParse(totalPrice) ?? orderItems.fold(0.0, (sum, item) => sum + item.correctTotalPrice);
+  }
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
     return CartItem(
@@ -347,7 +369,8 @@ class CartResponse {
   // Helper methods
   int get totalItems => cart.fold(0, (sum, item) => sum + item.quantity);
   
-  double get totalPrice => cart.fold(0.0, (sum, item) => sum + double.parse(item.totalPrice));
+  // استخدام totalPrice من API بدلاً من الحساب المحلي
+  double get totalPrice => cart.fold(0.0, (sum, item) => sum + (double.tryParse(item.totalPrice) ?? 0.0));
   
   double get totalCashback => cart.fold(0.0, (sum, item) => sum + double.parse(item.cashbackAmount));
 }

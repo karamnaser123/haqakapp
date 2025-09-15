@@ -425,7 +425,7 @@ class CartService {
         
         // مزامنة التغيير مع الخادم
         if (quantity > 0) {
-          _updateQuantityAPI(productId, quantity);
+          await _updateQuantityAPI(productId, quantity);
         }
         
         // إشعار تحديث السلة
@@ -436,7 +436,8 @@ class CartService {
       return false;
     } catch (e) {
       print('Error updating quantity: $e');
-      return false;
+      // Re-throw the exception so the UI can handle it
+      rethrow;
     }
   }
 
@@ -455,7 +456,7 @@ class CartService {
         await _saveCart();
         
         // مزامنة التغيير مع الخادم
-        _updateQuantityAPI(productId, _cartItems[itemIndex].quantity);
+        await _updateQuantityAPI(productId, _cartItems[itemIndex].quantity);
         
         // إشعار تحديث السلة
         CartUpdateNotifier.notifyCartUpdate();
@@ -465,7 +466,8 @@ class CartService {
       return false;
     } catch (e) {
       print('Error increasing quantity: $e');
-      return false;
+      // Re-throw the exception so the UI can handle it
+      rethrow;
     }
   }
 
@@ -485,7 +487,7 @@ class CartService {
           await _saveCart();
           
           // مزامنة التغيير مع الخادم
-          _updateQuantityAPI(productId, _cartItems[itemIndex].quantity);
+          await _updateQuantityAPI(productId, _cartItems[itemIndex].quantity);
         } else {
           // إذا كانت الكمية 1، احذف المنتج من السلة
           return await removeFromCart(productId);
@@ -499,7 +501,8 @@ class CartService {
       return false;
     } catch (e) {
       print('Error decreasing quantity: $e');
-      return false;
+      // Re-throw the exception so the UI can handle it
+      rethrow;
     }
   }
 
@@ -507,6 +510,45 @@ class CartService {
   Future<List<CartItem>> getCartItems() async {
     await loadCart();
     return List.unmodifiable(_cartItems);
+  }
+
+  // جلب بيانات السلة من الخادم
+  Future<Map<String, dynamic>?> getCartFromServer() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      
+      if (token == null) {
+        throw Exception('User not logged in');
+      }
+
+      print('Fetching cart from server...');
+      
+      final response = await http.get(
+        Uri.parse(ApiEndpoints.cartUrl),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('Cart API response code: ${response.statusCode}');
+      print('Cart API response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data;
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized - please login again');
+      } else {
+        throw Exception('Failed to load cart: ${response.statusCode}');
+      }
+    } on SocketException {
+      throw Exception('No internet connection');
+    } catch (e) {
+      print('Error fetching cart from server: $e');
+      throw Exception('Failed to load cart: $e');
+    }
   }
 
   // الحصول على إجمالي الكمية في السلة (مجموع الكميات)
@@ -682,12 +724,25 @@ class CartService {
       );
 
       print('Update quantity response code: ${response.statusCode}');
+      print('Update quantity response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('Quantity updated successfully');
         await _markAsSynced(productId);
       } else if (response.statusCode == 401) {
         throw Exception('Unauthorized - please login again');
+      } else if (response.statusCode == 422) {
+        // Handle validation errors
+        final responseData = jsonDecode(response.body);
+        final errors = responseData['errors'];
+        if (errors != null && errors['quantity'] != null) {
+          // Extract the specific quantity validation error
+          final quantityErrors = errors['quantity'] as List;
+          if (quantityErrors.isNotEmpty) {
+            throw Exception(quantityErrors.first.toString());
+          }
+        }
+        throw Exception(responseData['message'] ?? 'Validation error');
       } else {
         final errorData = jsonDecode(response.body);
         throw Exception(errorData['message'] ?? 'Failed to update quantity');
@@ -736,6 +791,80 @@ class CartService {
       throw Exception('No internet connection');
     } catch (e) {
       print('Error clearing cart from server: $e');
+      return false;
+    }
+  }
+
+  // تحديث أسعار المنتجات في السلة من الخادم
+  Future<bool> syncProductPrices() async {
+    try {
+      await loadCart();
+      
+      if (_cartItems.isEmpty) {
+        return true; // لا توجد منتجات في السلة
+      }
+
+      // الحصول على الـ token
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      
+      if (token == null) {
+        throw Exception('User not logged in');
+      }
+
+      print('Syncing product prices from server...');
+      
+      bool hasUpdates = false;
+      
+      // تحديث كل منتج على حدة
+      for (int i = 0; i < _cartItems.length; i++) {
+        try {
+          final productId = _cartItems[i].product.id;
+          final oldPrice = _cartItems[i].product.price;
+          
+          // الحصول على أحدث بيانات المنتج
+          final response = await http.get(
+            Uri.parse('${ApiEndpoints.baseUrl}/products/$productId'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+
+          if (response.statusCode == 200) {
+            final productData = jsonDecode(response.body);
+            final updatedProduct = ProductModel.fromJson(productData);
+            final newPrice = updatedProduct.price;
+            
+            // إنشاء CartItem جديد مع المنتج المحدث
+            _cartItems[i] = CartItem(
+              product: updatedProduct,
+              quantity: _cartItems[i].quantity,
+              isSynced: _cartItems[i].isSynced,
+            );
+            hasUpdates = true;
+            
+            print('Updated product $productId: $oldPrice -> $newPrice');
+          } else {
+            print('Failed to get product $productId: ${response.statusCode}');
+          }
+        } catch (e) {
+          print('Error updating product ${_cartItems[i].product.id}: $e');
+          // استمر مع المنتجات الأخرى حتى لو فشل أحدها
+        }
+      }
+      
+      if (hasUpdates) {
+        await _saveCart();
+        CartUpdateNotifier.notifyCartUpdate();
+        print('Product prices synced successfully');
+      }
+      
+      return true;
+    } on SocketException {
+      throw Exception('No internet connection');
+    } catch (e) {
+      print('Error syncing product prices: $e');
       return false;
     }
   }

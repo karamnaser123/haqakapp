@@ -35,7 +35,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
   final Map<String, Timer> _imageTimers = {};
   final Map<String, bool> _imageLoadStates = {};
   
-  // متغيرات لتخزين عدد المنتجات للفئات الفرعية
+  // متغيرات لتخزين عدد المنتجات للفئات الفرعية (لم تعد مطلوبة - تأتي من API)
   final Map<int, int> _subCategoriesProductsCount = {};
   
   late AnimationController _animationController;
@@ -98,6 +98,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
         setState(() {
           if (isRefresh) {
             _categories = response.categories;
+            // عرض الفئات الرئيسية فقط في البداية
             _parentCategories = response.parentCategories;
           } else {
             // إضافة الفئات الجديدة فقط (تجنب التكرار)
@@ -106,7 +107,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
                 _categories.add(category);
               }
             }
-            // تحديث الفئات الرئيسية
+            // تحديث الفئات الرئيسية فقط
             _parentCategories = _categories.where((category) => category.isParent).toList();
           }
           _hasNextPage = response.hasNextPage;
@@ -191,23 +192,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
       print('Loading subcategories - Page: $_subCategoriesCurrentPage, Parent ID: $_selectedParentId');
       
       final authService = AuthService();
-      final response = await authService.getCategories(page: _subCategoriesCurrentPage);
+      final response = await authService.getSubcategories(
+        parentId: _selectedParentId!,
+        page: _subCategoriesCurrentPage,
+      );
       
-      // تصفية الفئات الفرعية فقط
-      final subCategoriesFromResponse = response.categories
-          .where((category) => category.parentId == _selectedParentId)
-          .toList();
-      
-      print('Subcategories response - Count: ${subCategoriesFromResponse.length}');
+      print('Subcategories response - Count: ${response.categories.length}');
       print('Has next page: ${response.hasNextPage}');
       
       if (mounted) {
         setState(() {
           if (isRefresh) {
-            _subCategories = subCategoriesFromResponse;
+            _subCategories = response.categories;
           } else {
             // إضافة الفئات الفرعية الجديدة فقط
-            for (final category in subCategoriesFromResponse) {
+            for (final category in response.categories) {
               if (!_subCategories.any((existing) => existing.id == category.id)) {
                 _subCategories.add(category);
               }
@@ -217,8 +216,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
           _subCategoriesLoadingMore = false;
         });
         
-        // جلب عدد المنتجات لكل فئة فرعية
-        _loadProductsCountForSubCategories(subCategoriesFromResponse);
+        // لا حاجة لجلب عدد المنتجات - يأتي من API
+        // _loadProductsCountForSubCategories(response.categories);
         
         print('Total subcategories after load: ${_subCategories.length}');
         print('Subcategories has next page: $_subCategoriesHasNextPage');
@@ -254,7 +253,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
     setState(() {
       _selectedParentId = parentId;
       _selectedParentName = parentName;
-      _subCategories = _categories.where((category) => category.parentId == parentId).toList();
+      _subCategories.clear();
       // إعادة تعيين pagination للفئات الفرعية
       _subCategoriesCurrentPage = 1;
       _subCategoriesHasNextPage = false;
@@ -279,7 +278,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
   }
 
   int _getSubCategoriesCount(int parentId) {
-    return _categories.where((category) => category.parentId == parentId).length;
+    // البحث عن الفئة الرئيسية في القائمة الحالية
+    final parentCategory = _parentCategories.firstWhere(
+      (category) => category.id == parentId,
+      orElse: () => CategoryModel(
+        id: 0,
+        nameEn: '',
+        nameAr: '',
+        childrenCount: 0,
+      ),
+    );
+    return parentCategory.childrenCount;
   }
 
   bool _shouldShowLoadMore() {
@@ -330,7 +339,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
               ),
             const SizedBox(height: 8),
             Text(
-              isLoading ? 'Loading...' : 'Load More',
+              isLoading ? AppLocalizations.of(context)!.loading : AppLocalizations.of(context)!.loadMore,
               style: GoogleFonts.cairo(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -378,7 +387,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
           ),
           const SizedBox(height: 8),
           Text(
-            'Loading...',
+            AppLocalizations.of(context)!.loading,
             style: GoogleFonts.cairo(
               fontSize: 10,
               color: const Color(0xFF667eea),
@@ -474,28 +483,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
     _imageTimers.remove(imageUrl);
   }
 
-  Future<void> _loadProductsCountForSubCategories(List<CategoryModel> subCategories) async {
-    final authService = AuthService();
-    
-    for (final category in subCategories) {
-      try {
-        final productsCount = await authService.getProductsCountByCategory(category.id);
-        if (mounted) {
-          setState(() {
-            _subCategoriesProductsCount[category.id] = productsCount;
-          });
-        }
-        print('Products count for ${category.nameAr}: $productsCount');
-      } catch (e) {
-        print('Error loading products count for ${category.nameAr}: $e');
-        if (mounted) {
-          setState(() {
-            _subCategoriesProductsCount[category.id] = 0;
-          });
-        }
-      }
-    }
-  }
+  // تم حذف _loadProductsCountForSubCategories - البيانات تأتي من API
 
   Widget _buildSubCategoryImage(String imageUrl, CategoryModel category) {
     return StatefulBuilder(
@@ -585,8 +573,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
                             color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(
-                            Icons.arrow_back,
+                          child: Icon(
+                            Directionality.of(context) == TextDirection.rtl 
+                                ? Icons.arrow_forward 
+                                : Icons.arrow_back,
                             color: Colors.white,
                             size: 20,
                           ),
@@ -656,8 +646,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
             const SizedBox(height: 16),
             Text(
               _selectedParentId != null 
-                  ? 'No subcategories found'
-                  : 'No categories found',
+                  ? AppLocalizations.of(context)!.noSubcategoriesFound
+                  : AppLocalizations.of(context)!.noCategoriesFound,
               style: GoogleFonts.cairo(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -813,7 +803,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${_subCategoriesProductsCount[category.id] ?? 0} ${AppLocalizations.of(context)!.product}',
+                            '${category.productsCount} ${AppLocalizations.of(context)!.product}',
                             style: GoogleFonts.cairo(
                               fontSize: 10,
                               color: const Color(0xFF667eea),

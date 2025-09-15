@@ -55,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   Future<void> _checkAuthStatus() async {
-    // انتظار قليل لعرض الشاشة
+    // Wait a bit to show the screen
     await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
@@ -64,12 +64,12 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       final authService = AuthService();
       
       if (authService.isLoggedIn()) {
-        // المستخدم مسجل الدخول - التحقق من حالة البريد الإلكتروني
+        // User is logged in - check email verification status
         final user = await authService.getUserInfo();
         
         if (mounted) {
           if (user.emailVerifiedAt == null || user.emailVerifiedAt!.isEmpty) {
-            // البريد الإلكتروني غير مؤكد - الانتقال لصفحة OTP
+            // Email not verified - navigate to OTP page
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -80,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               ),
             );
           } else {
-            // البريد الإلكتروني مؤكد - الانتقال للصفحة الرئيسية
+            // Email verified - navigate to home page
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -88,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
           }
         }
       } else {
-        // المستخدم غير مسجل الدخول - الانتقال لصفحة تسجيل الدخول
+        // User not logged in - navigate to login page
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -97,7 +97,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         }
       }
     } catch (e) {
-      // في حالة الخطأ، نوجه لصفحة تسجيل الدخول
+      // In case of error, redirect to login page
       if (mounted) {
         Navigator.pushReplacement(
           context,
