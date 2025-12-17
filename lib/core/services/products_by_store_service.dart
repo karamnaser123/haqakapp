@@ -22,7 +22,7 @@ class ProductsByStoreService {
 
       final Map<String, String> queryParams = {
         'page': page.toString(),
-        'store_id': storeId.toString(),
+        'per_page': '20', // طلب 20 منتج في كل صفحة
       };
 
       if (search != null && search.isNotEmpty) {
@@ -45,6 +45,10 @@ class ProductsByStoreService {
         queryParameters: queryParams,
       );
 
+      // طباعة URL للتشخيص
+      print('ProductsByStore API URL: $uri');
+      print('Query params: $queryParams');
+
       final response = await http.get(
         uri,
         headers: {
@@ -56,23 +60,23 @@ class ProductsByStoreService {
 
       if (response.statusCode == 200) {
         try {
-          // Clean the response body to handle malformed Unicode escapes
-          String cleanedBody = response.body
-              .replaceAll(RegExp(r'\\u[0-9a-fA-F]{1,3}(?![0-9a-fA-F])'), '') // Remove incomplete Unicode escapes
-              .replaceAll(RegExp(r'\\[^u]'), ''); // Remove other malformed escapes
+          // استخدام JSON decode مباشرة بدون cleaning لأن الـ cleaning كان يفسد URLs
+          final Map<String, dynamic> data = json.decode(response.body);
+          final responseObj = ProductsByStoreResponse.fromJson(data);
           
-          final Map<String, dynamic> data = json.decode(cleanedBody);
-          return ProductsByStoreResponse.fromJson(data);
+          // طباعة للتشخيص
+          print('Products loaded: ${responseObj.products.length} products');
+          print('Current page: ${responseObj.currentPage}, Last page: ${responseObj.lastPage}');
+          print('Per page: ${responseObj.perPage}, Total: ${responseObj.total}');
+          
+          return responseObj;
         } catch (e) {
-          // If cleaning doesn't work, try to parse the original response
-          try {
-            final Map<String, dynamic> data = json.decode(response.body);
-            return ProductsByStoreResponse.fromJson(data);
-          } catch (e2) {
-            throw Exception('Invalid data format from server. Please try again.');
-          }
+          print('Error parsing response: $e');
+          print('Response body: ${response.body}');
+          throw Exception('Invalid data format from server. Please try again.');
         }
       } else {
+        print('API Error: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to load products: ${response.statusCode}');
       }
     } catch (e) {
@@ -97,14 +101,44 @@ class ProductsByStoreResponse {
   });
 
   factory ProductsByStoreResponse.fromJson(Map<String, dynamic> json) {
+    // الـ API يرجع البيانات في هيكل مختلف
+    final productsData = json['products'] ?? {};
+    final data = productsData['data'] as List<dynamic>? ?? [];
+    
+    // طباعة للتشخيص
+    print('Parsing products response:');
+    print('  - productsData keys: ${productsData.keys}');
+    print('  - data length: ${data.length}');
+    print('  - per_page from API: ${productsData['per_page']}');
+    
+    // طباعة معلومات الصور للمنتج الأول
+    if (data.isNotEmpty) {
+      final firstProduct = data[0] as Map<String, dynamic>;
+      final productImages = firstProduct['product_images'] as List<dynamic>? ?? [];
+      print('  - First product ID: ${firstProduct['id']}');
+      print('  - First product images count: ${productImages.length}');
+      if (productImages.isNotEmpty) {
+        print('  - First product first image: ${productImages[0]['image']}');
+      }
+    }
+    
+    final products = data.map((productJson) {
+      final product = ProductModel.fromJson(productJson);
+      // طباعة للتشخيص
+      print('  - Product ID: ${product.id}, Images count: ${product.productImages.length}');
+      if (product.productImages.isNotEmpty) {
+        print('    - First image URL: ${product.productImages.first.image}');
+        print('    - allImages: ${product.allImages}');
+      }
+      return product;
+    }).toList();
+    
     return ProductsByStoreResponse(
-      products: (json['products'] as List)
-          .map((productJson) => ProductModel.fromJson(productJson))
-          .toList(),
-      currentPage: json['current_page'] ?? 1,
-      lastPage: json['last_page'] ?? 1,
-      total: json['total'] ?? 0,
-      perPage: json['per_page'] ?? 10,
+      products: products,
+      currentPage: int.tryParse(productsData['current_page']?.toString() ?? '1') ?? 1,
+      lastPage: int.tryParse(productsData['last_page']?.toString() ?? '1') ?? 1,
+      total: int.tryParse(productsData['total']?.toString() ?? '0') ?? 0,
+      perPage: int.tryParse(productsData['per_page']?.toString() ?? '20') ?? 20,
     );
   }
 }

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../l10n/app_localizations.dart';
 import '../core/models/store_model.dart';
 import '../core/services/stores_service.dart';
 import '../core/services/auth_service.dart';
+import '../core/widgets/network_image_widget.dart';
 import '../utils/maps_launcher.dart';
 import 'products_by_store_screen.dart';
 
@@ -15,7 +15,7 @@ class StoresScreen extends StatefulWidget {
   State<StoresScreen> createState() => _StoresScreenState();
 }
 
-class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMixin {
+class _StoresScreenState extends State<StoresScreen> {
   final StoresService _storesService = StoresService();
   final AuthService _authService = AuthService();
   final TextEditingController _searchController = TextEditingController();
@@ -28,34 +28,20 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
   int _currentPage = 1;
   int _lastPage = 1;
   String? _searchQuery;
-  
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
     _scrollController.addListener(_onScroll);
-    _loadStores();
-    _animationController.forward();
+    
+    // تحميل المتاجر مع تأخير صغير للتأكد من تحميل الـ token
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _loadStores();
+    });
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -83,6 +69,7 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
       });
 
       // Check if user is authenticated
+      await _authService.initialize(); // التأكد من تحميل الـ token
       if (!_authService.isLoggedIn()) {
         setState(() {
           _isLoading = false;
@@ -91,10 +78,15 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
         return;
       }
 
+      print('Loading stores - Page: $_currentPage, Search: $_searchQuery');
+      
       final response = await _storesService.getStores(
         page: _currentPage,
         search: _searchQuery,
       );
+      
+      print('Stores loaded successfully - Count: ${response.data.length}, Last Page: ${response.lastPage}');
+      print('Total stores: ${response.total}, Current page: ${response.currentPage}');
       
       if (mounted) {
         setState(() {
@@ -105,13 +97,28 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
           }
           _lastPage = response.lastPage;
           _isLoading = false;
+          _errorMessage = ''; // مسح رسائل الخطأ عند النجاح
         });
       }
     } catch (e) {
+      print('Error loading stores: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = e.toString();
+          // تحسين رسائل الخطأ
+          if (e.toString().contains('Check your internet connection')) {
+            _errorMessage = 'تأكد من اتصالك بالإنترنت';
+          } else if (e.toString().contains('Unauthorized')) {
+            _errorMessage = 'يرجى تسجيل الدخول مرة أخرى';
+          } else if (e.toString().contains('Server error')) {
+            _errorMessage = 'خطأ في الخادم - يرجى المحاولة لاحقاً';
+          } else if (e.toString().contains('Invalid response format')) {
+            _errorMessage = 'تنسيق البيانات غير صحيح. يرجى المحاولة مرة أخرى';
+          } else if (e.toString().contains('User not authenticated')) {
+            _errorMessage = 'يرجى تسجيل الدخول أولاً';
+          } else {
+            _errorMessage = e.toString().replaceAll('Exception: ', '');
+          }
         });
       }
     }
@@ -148,10 +155,14 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
   }
 
   void _searchStores() {
+    final query = _searchController.text.trim();
+    print('Searching stores with query: "$query"');
+    
     setState(() {
-      _searchQuery = _searchController.text.trim().isEmpty ? null : _searchController.text.trim();
+      _searchQuery = query.isEmpty ? null : query;
       _currentPage = 1;
     });
+    
     _loadStores(refresh: true);
   }
 
@@ -161,19 +172,16 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Column(
-            children: [
-              _buildSearchAndFilter(),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () => _loadStores(refresh: true),
-                  child: _buildStoresList(),
-                ),
+        child: Column(
+          children: [
+            _buildSearchAndFilter(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _loadStores(refresh: true),
+                child: _buildStoresList(),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -222,10 +230,6 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
           ),
         ),
       ),
-    ).animate().slideY(
-      duration: 600.ms,
-      delay: 200.ms,
-      begin: 0.3,
     );
   }
 
@@ -293,34 +297,58 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
       );
     }
 
-    if (_stores.isEmpty) {
+    if (_stores.isEmpty && !_isLoading) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.store_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              AppLocalizations.of(context)!.noStoresFound,
-              style: GoogleFonts.cairo(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.store_outlined,
+                size: 64,
+                color: Colors.grey[400],
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              AppLocalizations.of(context)!.tryAdjustingSearch,
-              style: GoogleFonts.cairo(
-                fontSize: 14,
-                color: Colors.grey[500],
+              const SizedBox(height: 16),
+              Text(
+                _searchQuery != null 
+                    ? 'لم يتم العثور على متاجر'
+                    : 'لا توجد متاجر متاحة',
+                style: GoogleFonts.cairo(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                _searchQuery != null 
+                    ? 'جرب البحث بكلمات مختلفة'
+                    : 'يرجى المحاولة لاحقاً',
+                style: GoogleFonts.cairo(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (_searchQuery != null) ...[
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    _searchStores();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF667eea),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: Text('مسح البحث'),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }
@@ -424,41 +452,13 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
                       color: const Color(0xFF667eea).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    child: store.image != null && store.image!.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(30),
-                            child: Image.network(
-                              store.image!,
-                              fit: BoxFit.cover,
-                              width: 60,
-                              height: 60,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.store,
-                                  size: 30,
-                                  color: Color(0xFF667eea),
-                                );
-                              },
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667eea)),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          )
-                        : const Icon(
-                            Icons.store,
-                            size: 30,
-                            color: Color(0xFF667eea),
-                          ),
+                    child: StoreImageWidget(
+                      imageUrl: store.image,
+                      fit: BoxFit.cover,
+                      width: 60,
+                      height: 60,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
                 ),
               ),
@@ -468,27 +468,31 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
             Expanded(
               flex: 2,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Store Name
-                    Text(
-                      store.name,
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF2d3748),
+                    Flexible(
+                      child: Text(
+                        store.name,
+                        style: GoogleFonts.cairo(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF2d3748),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 4),
                     
                     // Status Badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: store.isActive ? Colors.green : Colors.red,
                         borderRadius: BorderRadius.circular(12),
@@ -498,35 +502,38 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
                             ? AppLocalizations.of(context)!.active 
                             : AppLocalizations.of(context)!.inactive,
                         style: GoogleFonts.cairo(
-                          fontSize: 10,
+                          fontSize: 9,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    const Spacer(),
                     
                     // Cashback Rate
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.local_offer,
-                          size: 12,
+                          size: 10,
                           color: const Color(0xFF667eea),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${store.cashbackRate}% ${AppLocalizations.of(context)!.cashbackRate}',
-                          style: GoogleFonts.cairo(
-                            fontSize: 10,
-                            color: const Color(0xFF667eea),
-                            fontWeight: FontWeight.w500,
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            '${store.cashbackRate}%',
+                            style: GoogleFonts.cairo(
+                              fontSize: 9,
+                              color: const Color(0xFF667eea),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
                     
                     // View Products Button
                     SizedBox(
@@ -536,7 +543,8 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF667eea),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          minimumSize: const Size(0, 32),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -544,9 +552,11 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
                         child: Text(
                           AppLocalizations.of(context)!.viewProducts,
                           style: GoogleFonts.cairo(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
@@ -556,10 +566,6 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
             ),
           ],
         ),
-      ).animate().scale(
-        duration: 600.ms,
-        delay: (index * 100).ms,
-        curve: Curves.elasticOut,
       ),
     );
   }
@@ -622,41 +628,13 @@ class _StoresScreenState extends State<StoresScreen> with TickerProviderStateMix
                           color: const Color(0xFF667eea).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: store.image != null && store.image!.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.network(
-                                  store.image!,
-                                  fit: BoxFit.cover,
-                                  width: 80,
-                                  height: 80,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(
-                                      Icons.store,
-                                      color: Color(0xFF667eea),
-                                      size: 40,
-                                    );
-                                  },
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return const Center(
-                                      child: SizedBox(
-                                        width: 30,
-                                        height: 30,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 3,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667eea)),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              )
-                            : const Icon(
-                                Icons.store,
-                                color: Color(0xFF667eea),
-                                size: 40,
-                              ),
+                        child: StoreImageWidget(
+                          imageUrl: store.image,
+                          fit: BoxFit.cover,
+                          width: 80,
+                          height: 80,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                       const SizedBox(width: 20),
                       Expanded(

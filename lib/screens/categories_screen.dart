@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../l10n/app_localizations.dart';
 import '../core/services/auth_service.dart';
 import '../core/models/category_model.dart';
+import '../core/widgets/network_image_widget.dart';
 import 'products_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -15,7 +14,7 @@ class CategoriesScreen extends StatefulWidget {
   State<CategoriesScreen> createState() => _CategoriesScreenState();
 }
 
-class _CategoriesScreenState extends State<CategoriesScreen> with TickerProviderStateMixin {
+class _CategoriesScreenState extends State<CategoriesScreen> {
   List<CategoryModel> _categories = [];
   List<CategoryModel> _parentCategories = [];
   List<CategoryModel> _subCategories = [];
@@ -31,48 +30,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
   bool _subCategoriesHasNextPage = false;
   bool _subCategoriesLoadingMore = false;
   
-  // متغيرات للتحكم في timeout الصور
-  final Map<String, Timer> _imageTimers = {};
-  final Map<String, bool> _imageLoadStates = {};
-  
   // متغيرات لتخزين عدد المنتجات للفئات الفرعية (لم تعد مطلوبة - تأتي من API)
   final Map<int, int> _subCategoriesProductsCount = {};
   
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
   late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _loadCategories();
-  }
-
-  void _initializeAnimations() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
   }
 
   Future<void> _loadCategories({bool isRefresh = false}) async {
@@ -88,6 +56,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
       print('Loading categories - Page: $_currentPage, isRefresh: $isRefresh');
       
       final authService = AuthService();
+      await authService.initialize(); // التأكد من تحميل الـ token
       final response = await authService.getCategories(page: _currentPage);
       
       print('Response received - Categories count: ${response.categories.length}');
@@ -118,10 +87,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
         print('Total categories after load: ${_categories.length}');
         print('Total parent categories after load: ${_parentCategories.length}');
         print('Has next page: $_hasNextPage');
-        
-        if (_currentPage == 1) {
-          _animationController.forward();
-        }
       }
     } catch (e) {
       print('Error loading categories: $e');
@@ -364,179 +329,27 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
       ),
     );
   }
-
-
-  Widget _buildImagePlaceholder() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF667eea).withOpacity(0.1),
-            const Color(0xFF764ba2).withOpacity(0.1),
-          ],
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(
-            color: Color(0xFF667eea),
-            strokeWidth: 2,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            AppLocalizations.of(context)!.loading,
-            style: GoogleFonts.cairo(
-              fontSize: 10,
-              color: const Color(0xFF667eea),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImageWithTimeout(String imageUrl, CategoryModel category) {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        // إضافة timeout للصورة
-        _startImageTimeout(imageUrl, category);
-        
-        return CachedNetworkImage(
-          imageUrl: imageUrl,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          placeholder: (context, url) {
-            // timeout أقصر للفئات الفرعية
-            final timeoutDuration = _selectedParentId != null 
-                ? const Duration(seconds: 3) 
-                : const Duration(seconds: 5);
-            
-            return FutureBuilder<bool>(
-              future: Future.delayed(timeoutDuration, () => true),
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data == true) {
-                  print('Image timeout reached for ${category.nameAr}');
-                  return _buildDefaultIcon(category);
-                }
-                return _buildImagePlaceholder();
-              },
-            );
-          },
-          errorWidget: (context, url, error) {
-            print('Image load error for ${category.nameAr}: $error');
-            _cancelImageTimeout(imageUrl);
-            return _buildDefaultIcon(category);
-          },
-          fadeInDuration: const Duration(milliseconds: 300),
-          fadeOutDuration: const Duration(milliseconds: 100),
-          memCacheWidth: 200,
-          memCacheHeight: 200,
-          maxWidthDiskCache: 300,
-          maxHeightDiskCache: 300,
-          httpHeaders: const {
-            'Cache-Control': 'max-age=3600',
-          },
-          imageBuilder: (context, imageProvider) {
-            _cancelImageTimeout(imageUrl);
-            return Image(
-              image: imageProvider,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (context, error, stackTrace) {
-                print('Image builder error for ${category.nameAr}: $error');
-                return _buildDefaultIcon(category);
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _startImageTimeout(String imageUrl, CategoryModel category) {
-    // إلغاء الـ timer السابق إذا كان موجود
-    _cancelImageTimeout(imageUrl);
-    
-    // timeout أقصر للفئات الفرعية
-    final timeoutDuration = _selectedParentId != null 
-        ? const Duration(seconds: 6) 
-        : const Duration(seconds: 8);
-    
-    // بدء timer جديد
-    _imageTimers[imageUrl] = Timer(timeoutDuration, () {
-      print('Image timeout for ${category.nameAr} (${_selectedParentId != null ? 'Subcategory' : 'Category'})');
-      if (mounted) {
-        setState(() {
-          _imageLoadStates[imageUrl] = false;
-        });
-      }
-    });
-  }
-
-  void _cancelImageTimeout(String imageUrl) {
-    _imageTimers[imageUrl]?.cancel();
-    _imageTimers.remove(imageUrl);
-  }
-
-  // تم حذف _loadProductsCountForSubCategories - البيانات تأتي من API
-
-  Widget _buildSubCategoryImage(String imageUrl, CategoryModel category) {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return CachedNetworkImage(
-          imageUrl: imageUrl,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          placeholder: (context, url) {
-            // timeout أقصر للفئات الفرعية
-            return FutureBuilder<bool>(
-              future: Future.delayed(const Duration(seconds: 3), () => true),
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data == true) {
-                  print('Subcategory image timeout for ${category.nameAr}');
-                  return _buildDefaultIcon(category);
-                }
-                return _buildImagePlaceholder();
-              },
-            );
-          },
-          errorWidget: (context, url, error) {
-            print('Subcategory image load error for ${category.nameAr}: $error');
-            return _buildDefaultIcon(category);
-          },
-          fadeInDuration: const Duration(milliseconds: 200),
-          fadeOutDuration: const Duration(milliseconds: 100),
-          memCacheWidth: 150,
-          memCacheHeight: 150,
-          maxWidthDiskCache: 200,
-          maxHeightDiskCache: 200,
-          httpHeaders: const {
-            'Cache-Control': 'max-age=1800', // cache أقصر للفئات الفرعية
-          },
-        );
-      },
+  Widget _buildCategoryImage(CategoryModel category) {
+    return CategoryImageWidget(
+      imageUrl: category.image,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      borderRadius: _selectedParentId != null
+          ? const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            )
+          : null,
+      defaultIcon: Icons.category,
+      iconColor: const Color(0xFF667eea),
     );
   }
 
 
   @override
   void dispose() {
-    _animationController.dispose();
     _scrollController.dispose();
-    
-    // تنظيف جميع الـ timers
-    for (final timer in _imageTimers.values) {
-      timer.cancel();
-    }
-    _imageTimers.clear();
-    _imageLoadStates.clear();
-    
     super.dispose();
   }
 
@@ -600,8 +413,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
                     const SizedBox(width: 48),
                   ],
                 ),
-              ).animate().fadeIn(
-                duration: 600.ms,
               ),
               
               // Content
@@ -658,30 +469,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
       );
     }
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: GridView.builder(
-            controller: _scrollController,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.8,
-            ),
-            itemCount: categoriesToShow.length + (_shouldShowLoadMore() ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == categoriesToShow.length && _shouldShowLoadMore()) {
-                return _buildLoadMoreCard();
-              }
-              final category = categoriesToShow[index];
-              return _buildCategoryCard(category, index);
-            },
-          ),
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: GridView.builder(
+        controller: _scrollController,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.8,
         ),
+        itemCount: categoriesToShow.length + (_shouldShowLoadMore() ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == categoriesToShow.length && _shouldShowLoadMore()) {
+            return _buildLoadMoreCard();
+          }
+          final category = categoriesToShow[index];
+          return _buildCategoryCard(category, index);
+        },
       ),
     );
   }
@@ -738,15 +543,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
                   ),
                 ),
                 child: category.image != null && category.image!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                        ),
-                        child: _selectedParentId != null 
-                            ? _buildSubCategoryImage(category.image!, category)
-                            : _buildImageWithTimeout(category.image!, category),
-                      )
+                    ? _buildCategoryImage(category)
                     : _buildDefaultIcon(category),
               ),
             ),
@@ -818,10 +615,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> with TickerProvider
             ),
           ],
         ),
-      ).animate().scale(
-        duration: 600.ms,
-        delay: (index * 100).ms,
-        curve: Curves.elasticOut,
       ),
     );
   }

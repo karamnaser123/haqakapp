@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
 import '../core/services/auth_service.dart';
 import '../core/services/language_service.dart';
@@ -15,8 +14,7 @@ class EditProfileScreen extends StatefulWidget {
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen>
-    with TickerProviderStateMixin {
+class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
@@ -28,59 +26,28 @@ class _EditProfileScreenState extends State<EditProfileScreen>
   File? _selectedImage;
   String? _currentImageUrl;
   final LanguageService _languageService = LanguageService();
-  
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
 
   List<String> get _genderOptions => [
     AppLocalizations.of(context)!.male,
     AppLocalizations.of(context)!.female,
-    AppLocalizations.of(context)!.other,
   ];
 
   // خريطة للتحويل من النصوص المترجمة إلى القيم الأصلية
   Map<String, String> get _genderValueMap => {
     AppLocalizations.of(context)!.male: 'male',
     AppLocalizations.of(context)!.female: 'female',
-    AppLocalizations.of(context)!.other: 'other',
   };
 
   // خريطة للتحويل من القيم الأصلية إلى النصوص المترجمة
   Map<String, String> get _genderDisplayMap => {
     'male': AppLocalizations.of(context)!.male,
     'female': AppLocalizations.of(context)!.female,
-    'other': AppLocalizations.of(context)!.other,
   };
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
     _loadUserProfile();
-  }
-
-  void _initializeAnimations() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
   }
 
   Future<void> _loadUserProfile() async {
@@ -97,7 +64,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
           _currentImageUrl = user.image;
           _isLoading = false;
         });
-        _animationController.forward();
       }
     } catch (e) {
       if (mounted) {
@@ -184,7 +150,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
 
   @override
   void dispose() {
-    _animationController.dispose();
     _nameController.dispose();
     _ageController.dispose();
     super.dispose();
@@ -266,26 +231,22 @@ class _EditProfileScreenState extends State<EditProfileScreen>
           ),
         ),
         child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.of(context).size.height - 
-                               MediaQuery.of(context).padding.top - 
-                               kToolbarHeight,
-                  ),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                      const SizedBox(height: 20),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height - 
+                           MediaQuery.of(context).padding.top - 
+                           kToolbarHeight,
+              ),
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 20),
                       
                       // Profile Image
                       Center(
@@ -339,10 +300,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
                             ),
                           ),
                         ),
-                      ).animate().scale(
-                        duration: 800.ms,
-                        delay: 400.ms,
-                        curve: Curves.elasticOut,
                       ),
                       
                       const SizedBox(height: 16),
@@ -356,9 +313,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
                             color: Colors.white70,
                           ),
                         ),
-                      ).animate().fadeIn(
-                        duration: 600.ms,
-                        delay: 500.ms,
                       ),
                       
                       const SizedBox(height: 40),
@@ -374,10 +328,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
                           }
                           return null;
                         },
-                      ).animate().slideY(
-                        duration: 600.ms,
-                        delay: 600.ms,
-                        begin: 0.3,
                       ),
                       
                       const SizedBox(height: 20),
@@ -397,20 +347,12 @@ class _EditProfileScreenState extends State<EditProfileScreen>
                           }
                           return null;
                         },
-                      ).animate().slideY(
-                        duration: 600.ms,
-                        delay: 700.ms,
-                        begin: 0.3,
                       ),
                       
                       const SizedBox(height: 20),
                       
                       // Gender Dropdown
-                      _buildGenderDropdown().animate().slideY(
-                        duration: 600.ms,
-                        delay: 800.ms,
-                        begin: 0.3,
-                      ),
+                      _buildGenderDropdown(),
                       
                       const SizedBox(height: 40),
                       
@@ -460,16 +402,10 @@ class _EditProfileScreenState extends State<EditProfileScreen>
                                   ),
                                 ),
                         ),
-                      ).animate().slideY(
-                        duration: 600.ms,
-                        delay: 900.ms,
-                        begin: 0.3,
                       ),
                       
                       const SizedBox(height: 20),
-                          ],
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 ),

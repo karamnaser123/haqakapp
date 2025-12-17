@@ -83,7 +83,7 @@ class PaginationLink {
     return PaginationLink(
       url: json['url'],
       label: json['label'] ?? '',
-      page: json['page'],
+      page: int.tryParse(json['page']?.toString() ?? '0'),
       active: json['active'] ?? false,
     );
   }
@@ -124,21 +124,21 @@ class PaginatedStoresResponse {
     final storesData = json['data'] as List<dynamic>? ?? [];
     
     return PaginatedStoresResponse(
-      currentPage: json['current_page'] ?? 1,
+      currentPage: int.tryParse(json['current_page']?.toString() ?? '1') ?? 1,
       data: storesData.map((storeJson) => Store.fromJson(storeJson)).toList(),
       firstPageUrl: json['first_page_url'] ?? '',
-      from: json['from'] ?? 0,
-      lastPage: json['last_page'] ?? 1,
+      from: int.tryParse(json['from']?.toString() ?? '0') ?? 0,
+      lastPage: int.tryParse(json['last_page']?.toString() ?? '1') ?? 1,
       lastPageUrl: json['last_page_url'] ?? '',
       links: (json['links'] as List<dynamic>? ?? [])
           .map((linkJson) => PaginationLink.fromJson(linkJson))
           .toList(),
       nextPageUrl: json['next_page_url'],
       path: json['path'] ?? '',
-      perPage: json['per_page'] ?? 10,
+      perPage: int.tryParse(json['per_page']?.toString() ?? '10') ?? 10,
       prevPageUrl: json['prev_page_url'],
-      to: json['to'] ?? 0,
-      total: json['total'] ?? 0,
+      to: int.tryParse(json['to']?.toString() ?? '0') ?? 0,
+      total: int.tryParse(json['total']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -194,13 +194,13 @@ class Store {
       otp: json['otp'],
       emailVerifiedAt: json['email_verified_at'],
       gender: json['gender'] ?? '',
-      age: json['age'] ?? 0,
+      age: int.tryParse(json['age']?.toString() ?? '0') ?? 0,
       balance: json['balance'] ?? '0.00',
       code: json['code'] ?? '',
       qrCode: json['qr_code'],
-      cashbackRate: json['cashback_rate'] ?? 0,
+      cashbackRate: int.tryParse(json['cashback_rate']?.toString() ?? '0') ?? 0,
       image: json['image'],
-      active: json['active'] ?? 0,
+      active: int.tryParse(json['active']?.toString() ?? '0') ?? 0,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
       storeDetails: json['store'] != null ? StoreDetails.fromJson(json['store']) : null,

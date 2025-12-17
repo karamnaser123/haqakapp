@@ -1,3 +1,5 @@
+import '../utils/image_helper.dart';
+
 class ProductImage {
   final int id;
   final int productId;
@@ -14,10 +16,13 @@ class ProductImage {
   });
 
   factory ProductImage.fromJson(Map<String, dynamic> json) {
+    // عدم معالجة URL هنا - سيتم معالجته في NetworkImageWidget
+    final rawImageUrl = json['image'] ?? '';
+    
     return ProductImage(
       id: json['id'] ?? 0,
-      productId: json['product_id'] ?? 0,
-      image: json['image'] ?? '',
+      productId: int.tryParse(json['product_id']?.toString() ?? '0') ?? 0,
+      image: rawImageUrl,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );
@@ -56,15 +61,17 @@ class Store {
   });
 
   factory Store.fromJson(Map<String, dynamic> json) {
+    final rawImageUrl = json['image'];
+    
     return Store(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
-      image: json['image'],
+      image: rawImageUrl != null ? ImageHelper.getImageUrl(rawImageUrl) : null,
       qrCode: json['qr_code'],
       cashbackRate: double.tryParse(json['cashback_rate']?.toString() ?? '0') ?? 0.0,
-      active: json['active'] ?? 0,
+      active: int.tryParse(json['active']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -147,20 +154,20 @@ class ProductModel {
 
     return ProductModel(
       id: json['id'] ?? 0,
-      storeId: json['store_id'] ?? 0,
-      categoryId: json['category_id'] ?? 0,
+      storeId: int.tryParse(json['store_id']?.toString() ?? '0') ?? 0,
+      categoryId: int.tryParse(json['category_id']?.toString() ?? '0') ?? 0,
       nameEn: _cleanText(json['name_en']),
       nameAr: _cleanText(json['name_ar']),
       price: _cleanText(json['price']) != '' ? _cleanText(json['price']) : '0.00',
       discount: _cleanText(json['discount']) != '' ? _cleanText(json['discount']) : '0.00',
-      stock: json['stock'] ?? 0,
+      stock: int.tryParse(json['stock']?.toString() ?? '0') ?? 0,
       descriptionEn: _cleanText(json['description_en']),
       descriptionAr: _cleanText(json['description_ar']),
-      active: json['active'] ?? 0,
-      featured: json['featured'] ?? 0,
-      newProduct: json['new'] ?? 0,
-      bestSeller: json['best_seller'] ?? 0,
-      topRated: json['top_rated'] ?? 0,
+      active: int.tryParse(json['active']?.toString() ?? '0') ?? 0,
+      featured: int.tryParse(json['featured']?.toString() ?? '0') ?? 0,
+      newProduct: int.tryParse(json['new']?.toString() ?? '0') ?? 0,
+      bestSeller: int.tryParse(json['best_seller']?.toString() ?? '0') ?? 0,
+      topRated: int.tryParse(json['top_rated']?.toString() ?? '0') ?? 0,
       createdAt: _cleanText(json['created_at']),
       updatedAt: _cleanText(json['updated_at']),
       productImages: productImages,
@@ -235,8 +242,13 @@ class ProductModel {
   // التحقق من وجود صور للمنتج
   bool get hasImages => productImages.isNotEmpty;
 
-  // الحصول على جميع صور المنتج
-  List<String> get allImages => productImages.map((img) => img.image).toList();
+  // الحصول على جميع صور المنتج (بدون معالجة URLs - يتم معالجتها في NetworkImageWidget)
+  List<String> get allImages {
+    return productImages
+        .map((img) => img.image)
+        .where((url) => url.isNotEmpty)
+        .toList();
+  }
 }
 
 class Category {
@@ -261,7 +273,7 @@ class Category {
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
       id: json['id'] ?? 0,
-      parentId: json['parent_id'],
+      parentId: json['parent_id'] != null ? int.tryParse(json['parent_id'].toString()) : null,
       nameEn: json['name_en'] ?? '',
       nameAr: json['name_ar'] ?? '',
       image: json['image'],
@@ -338,13 +350,13 @@ class ProductsResponse {
     
     return ProductsResponse(
       products: data.map((item) => ProductModel.fromJson(item)).toList(),
-      currentPage: productsData['current_page'] ?? 1,
-      lastPage: productsData['last_page'] ?? 1,
+      currentPage: int.tryParse(productsData['current_page']?.toString() ?? '1') ?? 1,
+      lastPage: int.tryParse(productsData['last_page']?.toString() ?? '1') ?? 1,
       hasNextPage: productsData['next_page_url'] != null,
       hasPrevPage: productsData['prev_page_url'] != null,
-      total: productsData['total'] ?? 0,
-      perPage: productsData['per_page'] ?? 10,
-      productsCount: json['products_count'] ?? 0,
+      total: int.tryParse(productsData['total']?.toString() ?? '0') ?? 0,
+      perPage: int.tryParse(productsData['per_page']?.toString() ?? '10') ?? 10,
+      productsCount: int.tryParse(json['products_count']?.toString() ?? '0') ?? 0,
     );
   }
 }

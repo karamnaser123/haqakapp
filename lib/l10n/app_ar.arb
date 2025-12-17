@@ -245,6 +245,7 @@
   "addingToCart": "جاري الإضافة للسلة",
   "outOfStock": "نفد المخزون",
   "addedToCart": "تمت الإضافة للسلة",
+  "viewCart": "عرض السلة",
   "failedToAddToCart": "فشل في الإضافة للسلة",
   "error": "خطأ",
   "store": "المتجر",

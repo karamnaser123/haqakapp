@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       );
       
       // استدعاء API
-      final authResponse = await authService.login(loginRequest);
+      await authService.login(loginRequest);
       
       if (mounted) {
         setState(() {
@@ -118,19 +118,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           print('Error getting user info: $e');
         }
         
-        // رسالة نجاح
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authResponse.message.isNotEmpty ? authResponse.message : AppLocalizations.of(context)!.loginSuccessful,
-              style: GoogleFonts.cairo(),
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        
         // الانتقال للصفحة الرئيسية
+        // لا نعرض رسالة نجاح هنا لأن الشاشة ستنتهي بعد الانتقال
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -142,17 +131,19 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           _isLoading = false;
         });
         
-        // رسالة خطأ
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e.toString().replaceFirst('Exception: ', '').replaceFirst('Exception:', ''),
-              style: GoogleFonts.cairo(),
+        // رسالة خطأ - التحقق من mounted مرة أخرى قبل عرض snackbar
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                e.toString().replaceFirst('Exception: ', '').replaceFirst('Exception:', ''),
+                style: GoogleFonts.cairo(),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
+        }
       }
     }
   }

@@ -111,44 +111,63 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _isLoadingCart = true;
       });
       
-      final cartData = await _cartService.getCartFromServer();
+      // Use AuthService to get cart data properly
+      final authService = AuthService();
+      await authService.initialize(); // التأكد من تحميل الـ token
+      final cartResponse = await authService.getCart();
       
-      if (cartData != null) {
-        // Print full data structure
-        print('Full cart data structure: $cartData');
-        
-        // Parse data from API
-        final List<dynamic> cartList = cartData['cart'] ?? [];
+      if (cartResponse.cart.isNotEmpty) {
+        // Convert CartResponse to cart_service.CartItem list
         final List<cart_service.CartItem> items = [];
         double total = 0.0;
         
-        print('Cart list length: ${cartList.length}');
+        print('Cart response items: ${cartResponse.cart.length}');
         
-        for (var cartItem in cartList) {
-          final List<dynamic> orderItems = cartItem['order_items'] ?? [];
-          print('Order items length: ${orderItems.length}');
-          
-          for (var itemData in orderItems) {
+        for (var cartItem in cartResponse.cart) {
+          for (var orderItem in cartItem.orderItems) {
             try {
-              print('Processing item: ${itemData['product']?['name_en']}');
+              print('Processing item: ${orderItem.product.nameEn}');
               
-              // Create ProductModel from data
-              final product = ProductModel.fromJson(itemData['product'] ?? {});
-              final quantity = itemData['quantity'] ?? 1;
-              final totalPrice = double.tryParse(itemData['total_price']?.toString() ?? '0') ?? 0.0;
+              // Create cart_service.CartItem from orderItem
+              // Convert CartProduct to ProductModel
+              final productModel = ProductModel(
+                id: orderItem.product.id,
+                storeId: orderItem.product.storeId,
+                categoryId: orderItem.product.categoryId,
+                nameEn: orderItem.product.nameEn,
+                nameAr: orderItem.product.nameAr,
+                price: orderItem.product.price,
+                discount: orderItem.product.discount,
+                stock: orderItem.product.stock,
+                descriptionEn: orderItem.product.descriptionEn,
+                descriptionAr: orderItem.product.descriptionAr,
+                active: orderItem.product.active,
+                featured: orderItem.product.featured,
+                newProduct: orderItem.product.newProduct,
+                bestSeller: orderItem.product.bestSeller,
+                topRated: orderItem.product.topRated,
+                createdAt: orderItem.product.createdAt,
+                updatedAt: orderItem.product.updatedAt,
+                productImages: orderItem.product.productImages.map((img) => ProductImage(
+                  id: img.id,
+                  productId: img.productId,
+                  image: img.image,
+                  createdAt: img.createdAt,
+                  updatedAt: img.updatedAt,
+                )).toList(),
+              );
               
-              // Create CartItem
               final cartItemObj = cart_service.CartItem(
-                product: product,
-                quantity: quantity,
+                product: productModel,
+                quantity: orderItem.quantity,
                 isSynced: true,
               );
               
               items.add(cartItemObj);
-              _itemPrices[product.id] = totalPrice; // Save correct price from API
-              total += totalPrice; // Use price from API instead of calculation
+              _itemPrices[orderItem.product.id] = orderItem.correctTotalPrice;
+              total += orderItem.correctTotalPrice;
               
-              print('Added item: ${product.nameEn}, quantity: $quantity, API price: $totalPrice, calculated price: ${cartItemObj.totalPrice}');
+              print('Added item: ${orderItem.product.nameEn}, quantity: ${orderItem.quantity}, API price: ${orderItem.correctTotalPrice}');
             } catch (e) {
               print('Error parsing cart item: $e');
             }
@@ -156,33 +175,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
         
         // Extract cashback amount from API
-        double cashbackAmount = 0.0;
+        double cashbackAmount = cartResponse.totalCashback;
         double subtotal = 0.0;
         double discountAmount = 0.0;
-        double totalPriceAfterDiscount = 0.0;
+        double totalPriceAfterDiscount = cartResponse.totalPrice;
         String? discountCode;
         
-        // Extract data from cart[0] (first item in cart)
-        if (cartList.isNotEmpty) {
-          final cartItem = cartList[0];
+        // Extract data from first cart item if available
+        if (cartResponse.cart.isNotEmpty) {
+          final cartItem = cartResponse.cart.first;
           
           // Extract details from cart item
-          subtotal = double.tryParse(cartItem['subtotal']?.toString() ?? '0') ?? 0.0;
-          discountAmount = double.tryParse(cartItem['discount_amount']?.toString() ?? '0') ?? 0.0;
-          totalPriceAfterDiscount = double.tryParse(cartItem['total_price']?.toString() ?? '0') ?? 0.0;
-          cashbackAmount = double.tryParse(cartItem['cashback_amount']?.toString() ?? '0') ?? 0.0;
-          
-          // Extract discount code from discount_info
-          if (cartItem['discount_info'] != null) {
-            discountCode = cartItem['discount_info']['code']?.toString();
-          }
+          subtotal = double.tryParse(cartItem.totalPrice) ?? 0.0;
+          discountAmount = 0.0; // Will be updated when discount is applied
+          totalPriceAfterDiscount = double.tryParse(cartItem.totalPrice) ?? 0.0;
+          cashbackAmount = double.tryParse(cartItem.cashbackAmount) ?? 0.0;
           
           print('Cart item details:');
           print('Subtotal: $subtotal');
           print('Discount Amount: $discountAmount');
           print('Total Price: $totalPriceAfterDiscount');
           print('Cashback Amount: $cashbackAmount');
-          print('Discount Code: $discountCode');
         }
         
         print('Total items parsed: ${items.length}');

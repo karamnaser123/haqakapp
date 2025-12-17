@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../core/services/auth_service.dart';
 import '../core/services/language_service.dart';
 import '../core/models/user_model.dart';
@@ -18,46 +17,18 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen>
-    with TickerProviderStateMixin {
+class _ProfileScreenState extends State<ProfileScreen> {
   UserModel? _user;
   bool _isLoading = true;
   String? _currentImageUrl;
   final LanguageService _languageService = LanguageService();
   
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
   Timer? _imageRefreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
     _loadUserProfile();
-  }
-
-  void _initializeAnimations() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
   }
 
   Future<void> _loadUserProfile() async {
@@ -71,7 +42,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           _currentImageUrl = user.image;
           _isLoading = false;
         });
-        _animationController.forward();
         _startImageRefreshTimer();
       }
     } catch (e) {
@@ -193,7 +163,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   void dispose() {
     _imageRefreshTimer?.cancel();
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -237,23 +206,19 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ),
         child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.of(context).size.height - 
-                               MediaQuery.of(context).padding.top,
-                  ),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                    const SizedBox(height: 40),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height - 
+                           MediaQuery.of(context).padding.top,
+              ),
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 40),
                     
                     // Profile Header Card
                     Container(
@@ -313,10 +278,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     : _buildDefaultAvatar(),
                               ),
                             ),
-                          ).animate().scale(
-                            duration: 800.ms,
-                            delay: 400.ms,
-                            curve: Curves.elasticOut,
                           ),
                           
                           const SizedBox(height: 20),
@@ -329,9 +290,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF2d3748),
                             ),
-                          ).animate().fadeIn(
-                            duration: 600.ms,
-                            delay: 500.ms,
                           ),
                           
                           const SizedBox(height: 8),
@@ -343,9 +301,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                               fontSize: 16,
                               color: const Color(0xFF718096),
                             ),
-                          ).animate().fadeIn(
-                            duration: 600.ms,
-                            delay: 600.ms,
                           ),
                           
                           const SizedBox(height: 30),
@@ -399,8 +354,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       const SizedBox(height: 4),
                                       Text(
                                         _user?.balance != null && _user!.balance!.isNotEmpty
-                                            ? '${_user!.balance} ${AppLocalizations.of(context)!.jd}'
-                                            : '0.00 ${AppLocalizations.of(context)!.jd}',
+                                            ? '${_user!.balance}'
+                                            : '0.00',
                                         style: GoogleFonts.cairo(
                                           fontSize: 24,
                                           color: Colors.white,
@@ -427,10 +382,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 ),
                               ],
                             ),
-                          ).animate().slideY(
-                            duration: 600.ms,
-                            delay: 700.ms,
-                            begin: 0.3,
                           ),
                         ],
                       ),
@@ -490,10 +441,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ],
                         ),
                       ),
-                    ).animate().slideY(
-                      duration: 600.ms,
-                      delay: 800.ms,
-                      begin: 0.3,
                     ),
                     
                     const SizedBox(height: 16),
@@ -545,10 +492,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ],
                         ),
                       ),
-                    ).animate().slideY(
-                      duration: 600.ms,
-                      delay: 900.ms,
-                      begin: 0.3,
                     ),
                     
                     const SizedBox(height: 16),
@@ -600,10 +543,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ],
                         ),
                       ),
-                    ).animate().slideY(
-                      duration: 600.ms,
-                      delay: 1000.ms,
-                      begin: 0.3,
                     ),
                     
                     const SizedBox(height: 16),
@@ -744,10 +683,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ),
                         ],
                       ),
-                    ).animate().slideY(
-                      duration: 600.ms,
-                      delay: 1100.ms,
-                      begin: 0.3,
                     ),
                     
                     const SizedBox(height: 16),
@@ -799,16 +734,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ],
                         ),
                       ),
-                    ).animate().slideY(
-                      duration: 600.ms,
-                      delay: 1100.ms,
-                      begin: 0.3,
                     ),
                     
                     const SizedBox(height: 20),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               ),

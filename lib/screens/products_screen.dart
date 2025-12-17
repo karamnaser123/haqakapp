@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../l10n/app_localizations.dart';
 import '../core/services/auth_service.dart';
 import '../core/models/product_model.dart';
+import '../core/widgets/network_image_widget.dart';
 import 'product_details_screen.dart';
 
 // Separate widget for product image gallery
@@ -36,6 +35,29 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
 
   @override
   Widget build(BuildContext context) {
+    // إذا لم تكن هناك صور، نعرض placeholder
+    if (widget.product.allImages.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF667eea).withOpacity(0.1),
+              const Color(0xFF764ba2).withOpacity(0.1),
+            ],
+          ),
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.shopping_bag,
+            size: 40,
+            color: Color(0xFF667eea),
+          ),
+        ),
+      );
+    }
+    
     return Stack(
       children: [
         // PageView to display all images
@@ -48,25 +70,11 @@ class _ProductImageGalleryState extends State<_ProductImageGallery> {
             });
           },
           itemBuilder: (context, index) {
-            return CachedNetworkImage(
-              imageUrl: widget.product.allImages[index],
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              placeholder: (context, url) => _buildImagePlaceholder(),
-              errorWidget: (context, url, error) {
-                print('Product image load error for ${widget.product.nameAr}: $error');
-                return _buildDefaultProductIcon();
-              },
-              fadeInDuration: const Duration(milliseconds: 300),
-              fadeOutDuration: const Duration(milliseconds: 100),
-              memCacheWidth: 200,
-              memCacheHeight: 200,
-              maxWidthDiskCache: 300,
-              maxHeightDiskCache: 300,
-              httpHeaders: const {
-                'Cache-Control': 'max-age=3600',
-              },
+            return SizedBox.expand(
+              child: ProductImageWidget(
+                imageUrl: widget.product.allImages[index],
+                fit: BoxFit.cover,
+              ),
             );
           },
         ),
@@ -262,7 +270,7 @@ class ProductsScreen extends StatefulWidget {
   State<ProductsScreen> createState() => _ProductsScreenState();
 }
 
-class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStateMixin {
+class _ProductsScreenState extends State<ProductsScreen> {
   List<ProductModel> _products = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -270,41 +278,14 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
   bool _hasNextPage = false;
   int _productsCount = 0;
   
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
   late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _loadProducts();
-  }
-
-  void _initializeAnimations() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
   }
 
   Future<void> _loadProducts({bool isRefresh = false}) async {
@@ -319,6 +300,7 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
       print('Loading products - Page: $_currentPage, Category ID: ${widget.categoryId}');
       
       final authService = AuthService();
+      await authService.initialize(); // التأكد من تحميل الـ token
       final response = await authService.getProductsByCategory(
         categoryId: widget.categoryId,
         page: _currentPage,
@@ -348,10 +330,6 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
         print('Total products after load: ${_products.length}');
         print('Products count from API: $_productsCount');
         print('Has next page: $_hasNextPage');
-        
-        if (_currentPage == 1) {
-          _animationController.forward();
-        }
       }
     } catch (e) {
       print('Error loading products: $e');
@@ -452,34 +430,126 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+              spreadRadius: 0,
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Product Image
-            Expanded(
-              flex: 2,
-              child: Container(
+            // Store Info - At the top inside the card
+            if (product.store != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF667eea).withOpacity(0.1),
-                      const Color(0xFF764ba2).withOpacity(0.1),
+                      const Color(0xFF667eea).withOpacity(0.08),
+                      const Color(0xFF764ba2).withOpacity(0.08),
                     ],
                   ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
                 ),
-                child: _buildProductImage(product),
+                child: Row(
+                  children: [
+                    // Store Icon
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF667eea).withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: StoreImageWidget(
+                          imageUrl: product.store!.image,
+                          fit: BoxFit.cover,
+                          width: 20,
+                          height: 20,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Store Name
+                    Expanded(
+                      child: Text(
+                        product.store!.name,
+                        style: GoogleFonts.cairo(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF2d3748),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Cashback Rate
+                    if (product.store!.cashbackRate > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF667eea).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.local_offer,
+                              size: 10,
+                              color: const Color(0xFF667eea),
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${product.store!.cashbackRate}%',
+                              style: GoogleFonts.cairo(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF667eea),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            
+            // Product Image
+            Expanded(
+              flex: 2,
+              child: ClipRRect(
+                borderRadius: product.store != null
+                    ? BorderRadius.zero
+                    : const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF667eea).withOpacity(0.05),
+                        const Color(0xFF764ba2).withOpacity(0.05),
+                      ],
+                    ),
+                  ),
+                  child: _buildProductImage(product),
+                ),
               ),
             ),
             
@@ -487,9 +557,10 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
             Expanded(
               flex: 3,
               child: Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Product Name
                     Text(
@@ -497,14 +568,15 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                           ? product.nameAr 
                           : product.nameEn,
                       style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                         color: const Color(0xFF2d3748),
+                        height: 1.3,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     
                     // Price and Discount
                     Column(
@@ -515,40 +587,36 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                           Text(
                             '${product.finalPrice.toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
                             style: GoogleFonts.cairo(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF667eea),
                             ),
                           ),
                           const SizedBox(height: 4),
-                          // Original price and discount percentage in one row
+                          // Original price and discount percentage
                           Row(
                             children: [
                               // Original price
                               Text(
                                 '${double.parse(product.price).toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
                                 style: GoogleFonts.cairo(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
+                                  fontSize: 11,
+                                  color: Colors.grey[500],
                                   decoration: TextDecoration.lineThrough,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               // Discount percentage
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: Colors.red.withOpacity(0.3),
-                                    width: 1,
-                                  ),
+                                  color: Colors.red[50],
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   '${AppLocalizations.of(context)!.discount} ${_getDiscountPercentage(product)}%',
                                   style: GoogleFonts.cairo(
-                                    fontSize: 9,
+                                    fontSize: 8,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.red[700],
                                   ),
@@ -560,7 +628,7 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                           Text(
                             '${product.finalPrice.toStringAsFixed(2)} ${AppLocalizations.of(context)!.jd}',
                             style: GoogleFonts.cairo(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF667eea),
                             ),
@@ -573,150 +641,62 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                     // Stock and Badges
                     Row(
                       children: [
-                        if (product.isNew)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              AppLocalizations.of(context)!.newProduct,
-                              style: GoogleFonts.cairo(
-                                fontSize: 8,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                        // Badges
+                        Wrap(
+                          spacing: 4,
+                          children: [
+                            if (product.isNew)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  AppLocalizations.of(context)!.newProduct,
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 7,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        if (product.isBestSeller) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.orange,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              AppLocalizations.of(context)!.bestSeller,
-                              style: GoogleFonts.cairo(
-                                fontSize: 8,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                            if (product.isBestSeller)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  AppLocalizations.of(context)!.bestSeller,
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 7,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                         const Spacer(),
+                        // Stock
                         Text(
                           '${AppLocalizations.of(context)!.stock}: ${product.stock}',
                           style: GoogleFonts.cairo(
-                            fontSize: 10,
-                            color: product.isAvailable ? Colors.green : Colors.red,
+                            fontSize: 9,
+                            color: product.isAvailable ? Colors.green[700] : Colors.red[700],
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // Store Info - at the bottom
-                    if (product.store != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: Colors.grey[300]!,
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            // Store Image
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.grey[300]!,
-                                  width: 1,
-                                ),
-                              ),
-                              child: ClipOval(
-                                child: product.store!.image != null
-                                    ? CachedNetworkImage(
-                                        imageUrl: product.store!.image!,
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) => Icon(
-                                          Icons.store,
-                                          size: 10,
-                                          color: Colors.grey[400],
-                                        ),
-                                        errorWidget: (context, url, error) => Icon(
-                                          Icons.store,
-                                          size: 10,
-                                          color: Colors.grey[400],
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.store,
-                                        size: 10,
-                                        color: Colors.grey[400],
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            // Store Name
-                            Expanded(
-                              child: Text(
-                                product.store!.name,
-                                style: GoogleFonts.cairo(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF2d3748),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            // Cashback Rate
-                            if (product.store!.cashbackRate > 0) ...[
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF667eea).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: Text(
-                                  '${product.store!.cashbackRate}%',
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 7,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF667eea),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
           ],
         ),
-      ).animate().scale(
-        duration: 600.ms,
-        delay: (index * 100).ms,
-        curve: Curves.elasticOut,
       ),
     );
   }
@@ -818,7 +798,6 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
 
   @override
   void dispose() {
-    _animationController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -893,8 +872,6 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
                     const SizedBox(width: 48),
                   ],
                 ),
-              ).animate().fadeIn(
-                duration: 600.ms,
               ),
               
               // Content
@@ -956,30 +933,24 @@ class _ProductsScreenState extends State<ProductsScreen> with TickerProviderStat
       );
     }
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: GridView.builder(
-            controller: _scrollController,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.60,
-            ),
-            itemCount: _products.length + (_hasNextPage ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == _products.length && _hasNextPage) {
-                return _buildLoadMoreCard();
-              }
-              final product = _products[index];
-              return _buildProductCard(product, index);
-            },
-          ),
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: GridView.builder(
+        controller: _scrollController,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.60,
         ),
+        itemCount: _products.length + (_hasNextPage ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == _products.length && _hasNextPage) {
+            return _buildLoadMoreCard();
+          }
+          final product = _products[index];
+          return _buildProductCard(product, index);
+        },
       ),
     );
   }

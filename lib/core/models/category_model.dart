@@ -1,3 +1,5 @@
+import '../utils/image_helper.dart';
+
 class CategoryModel {
   final int id;
   final int? parentId;
@@ -22,16 +24,18 @@ class CategoryModel {
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
+    final rawImageUrl = json['image'];
+    
     return CategoryModel(
       id: json['id'] ?? 0,
-      parentId: json['parent_id'],
+      parentId: json['parent_id'] != null ? int.tryParse(json['parent_id'].toString()) : null,
       nameEn: json['name_en'] ?? '',
       nameAr: json['name_ar'] ?? '',
-      image: json['image'],
+      image: rawImageUrl != null ? ImageHelper.getImageUrl(rawImageUrl) : null,
       createdAt: json['created_at'],
       updatedAt: json['updated_at'],
-      productsCount: json['products_count'] ?? 0,
-      childrenCount: json['children_count'] ?? 0,
+      productsCount: int.tryParse(json['products_count']?.toString() ?? '0') ?? 0,
+      childrenCount: int.tryParse(json['children_count']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -99,10 +103,10 @@ class CategoriesResponse {
       categories: categoriesList
           .map((category) => CategoryModel.fromJson(category))
           .toList(),
-      currentPage: categoriesData['current_page'] ?? 1,
-      lastPage: categoriesData['last_page'] ?? 1,
-      perPage: categoriesData['per_page'] ?? 10,
-      total: categoriesData['total'] ?? 0,
+      currentPage: int.tryParse(categoriesData['current_page']?.toString() ?? '1') ?? 1,
+      lastPage: int.tryParse(categoriesData['last_page']?.toString() ?? '1') ?? 1,
+      perPage: int.tryParse(categoriesData['per_page']?.toString() ?? '20') ?? 10,
+      total: int.tryParse(categoriesData['total']?.toString() ?? '0') ?? 0,
       nextPageUrl: categoriesData['next_page_url'],
       prevPageUrl: categoriesData['prev_page_url'],
     );

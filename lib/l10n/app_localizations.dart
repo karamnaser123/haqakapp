@@ -1493,6 +1493,12 @@ abstract class AppLocalizations {
   /// **'Added to Cart'**
   String get addedToCart;
 
+  /// No description provided for @viewCart.
+  ///
+  /// In en, this message translates to:
+  /// **'View Cart'**
+  String get viewCart;
+
   /// No description provided for @failedToAddToCart.
   ///
   /// In en, this message translates to:

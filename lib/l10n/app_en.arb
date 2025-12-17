@@ -246,6 +246,7 @@
   "addingToCart": "Adding to Cart",
   "outOfStock": "Out of Stock",
   "addedToCart": "Added to Cart",
+  "viewCart": "View Cart",
   "failedToAddToCart": "Failed to add to cart",
   "error": "Error",
   "store": "Store",

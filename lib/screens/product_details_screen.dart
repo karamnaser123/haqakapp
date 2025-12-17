@@ -2,11 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../l10n/app_localizations.dart';
 import '../core/services/auth_service.dart';
 import '../core/services/cart_service.dart';
 import '../core/models/product_model.dart';
+import '../core/widgets/network_image_widget.dart';
+import 'cart_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final int productId;
@@ -82,7 +83,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Ticker
     }
   }
 
-  void _showSnackBar(String message, Color color) {
+  void _showSnackBar(String message, Color color, {bool showViewCart = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -91,6 +92,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Ticker
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
+        action: showViewCart
+            ? SnackBarAction(
+                label: AppLocalizations.of(context)!.viewCart,
+                textColor: Colors.white,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CartScreen(),
+                    ),
+                  );
+                },
+              )
+            : null,
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -112,8 +128,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Ticker
       if (mounted) {
         if (success) {
           _showSnackBar(
-           AppLocalizations.of(context)!.addedToCart,
+            AppLocalizations.of(context)!.addedToCart,
             Colors.green,
+            showViewCart: true,
           );
         } else {
           _showSnackBar(
@@ -210,6 +227,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Ticker
           _showSnackBar(
             AppLocalizations.of(context)!.addedToCart,
             Colors.green,
+            showViewCart: true,
           );
         } else {
           _showSnackBar(
@@ -473,25 +491,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Ticker
               });
             },
             itemBuilder: (context, index) {
-              return CachedNetworkImage(
+              return ProductImageWidget(
                 imageUrl: product.allImages[index],
                 fit: BoxFit.cover,
                 width: double.infinity,
                 height: double.infinity,
-                placeholder: (context, url) => _buildImagePlaceholder(),
-                errorWidget: (context, url, error) {
-                  print('Product image load error: $error');
-                  return _buildDefaultImage();
-                },
-                fadeInDuration: const Duration(milliseconds: 300),
-                fadeOutDuration: const Duration(milliseconds: 100),
                 memCacheWidth: 400,
                 memCacheHeight: 400,
                 maxWidthDiskCache: 600,
                 maxHeightDiskCache: 600,
-                httpHeaders: const {
-                  'Cache-Control': 'max-age=3600',
-                },
               );
             },
           ),

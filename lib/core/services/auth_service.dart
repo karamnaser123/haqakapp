@@ -624,6 +624,15 @@ class AuthService {
   // Get Categories - الحصول على الفئات الرئيسية
   Future<CategoriesResponse> getCategories({int page = 1}) async {
     try {
+      // التأكد من تحميل الـ token
+      if (_token == null) {
+        await _loadToken();
+      }
+      
+      if (_token == null) {
+        throw Exception('User not authenticated');
+      }
+
       final url = '${ApiEndpoints.categoriesUrl}?page=$page';
       print('API URL: $url');
       print('Token: $_token');
@@ -657,6 +666,15 @@ class AuthService {
   // Get Subcategories - الحصول على الفئات الفرعية
   Future<CategoriesResponse> getSubcategories({required int parentId, int page = 1}) async {
     try {
+      // التأكد من تحميل الـ token
+      if (_token == null) {
+        await _loadToken();
+      }
+      
+      if (_token == null) {
+        throw Exception('User not authenticated');
+      }
+
       final url = '${ApiEndpoints.subcategoriesUrl}$parentId?page=$page';
       print('Subcategories API URL: $url');
       print('Token: $_token');

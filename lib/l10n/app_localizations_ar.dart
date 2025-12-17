@@ -708,6 +708,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get addedToCart => 'تمت الإضافة للسلة';
 
   @override
+  String get viewCart => 'عرض السلة';
+
+  @override
   String get failedToAddToCart => 'فشل في الإضافة للسلة';
 
   @override
